@@ -21,22 +21,30 @@ dependencies {
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 }
 
+def javaRelease = (findProperty("java_release") ?: "21").toString()
+def javaVersion = (findProperty("java_version") ?: javaRelease).toString()
+def minecraftDependency = (findProperty("minecraft_dependency") ?: ">=1.21.1 <1.21.9").toString()
+
 processResources {
 	inputs.property "version", project.version
+	inputs.property "java_version", javaVersion
+	inputs.property "minecraft_dependency", minecraftDependency
 	filesMatching("fabric.mod.json") {
-		expand "version": project.version
+		expand "version": project.version,
+				"java_version": javaVersion,
+				"minecraft_dependency": minecraftDependency
 	}
 }
 
 tasks.withType(JavaCompile).configureEach {
-	it.options.release = 21
+	it.options.release = javaRelease as Integer
 	it.options.encoding = 'UTF-8'
 }
 
 java {
 	withSourcesJar()
-	sourceCompatibility = JavaVersion.VERSION_21
-	targetCompatibility = JavaVersion.VERSION_21
+	sourceCompatibility = JavaVersion.toVersion(javaRelease)
+	targetCompatibility = JavaVersion.toVersion(javaRelease)
 }
 
 jar {

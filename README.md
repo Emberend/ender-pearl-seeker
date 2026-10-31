@@ -5,7 +5,9 @@
 
 用**末影之眼**自动三角定位末地要塞的 Fabric 客户端 Mod。不用任何指令，扔几次末影之眼就能算出要塞坐标，并在屏幕上给出距离、方向指引线和路标。
 
-- Minecraft **1.21.1 – 1.21.8** / Fabric（1.21.9+ 因渲染/按键 API 改动暂未支持）
+- Minecraft **1.20.1 / 1.20.4 / 1.20.6 / 1.21.1 – 1.21.8** / Fabric
+  - 1.21.9+ 暂未支持（渲染/按键 API 改动较大）
+  - 1.16.x 需要单独移植（API 差异太大），暂不在本仓库
 - 纯**客户端** Mod（单人、联机都能用，不需要装到服务端）
 - 依赖 [Fabric API](https://modrinth.com/mod/fabric-api)
 
@@ -101,15 +103,16 @@ GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew deployMod
 开发运行（需要图形环境）：`./gradlew runClient`。
 
 ### 构建全部支持版本
-为 1.21.1–1.21.8 各生成一个 jar（输出到 `build/versions/`）：
+为上面列出的所有版本各生成一个 jar（输出到 `build/versions/`）：
 
 ```bash
 ./scripts/build-all.sh
 ```
 
-单个版本也可以手动指定：
+单个版本也可以手动指定，例如 1.20.1（注意 Java 17）：
 ```bash
-./gradlew build -Pminecraft_version=1.21.8 -Pyarn_mappings=1.21.8+build.1 -Pfabric_api_version=0.136.1+1.21.8
+./gradlew build -Pminecraft_version=1.20.1 -Pyarn_mappings=1.20.1+build.10 \
+  -Pfabric_api_version=0.92.12+1.20.1 -Pjava_release=17 -Pminecraft_dependency=1.20.1
 ```
 
 ### 发布版本

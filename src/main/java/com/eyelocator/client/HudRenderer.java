@@ -22,8 +22,17 @@ public final class HudRenderer implements HudRenderCallback {
     private static final int BASE_RADIUS = 11;
     private static final int MARGIN = 22;
 
-    @Override
+    // 1.20.1 的接口签名是 (DrawContext, float)
+    public void onHudRender(DrawContext context, float tickDelta) {
+        renderHud(context);
+    }
+
+    // 1.21.x 的接口签名是 (DrawContext, RenderTickCounter)
     public void onHudRender(DrawContext context, RenderTickCounter tickCounter) {
+        renderHud(context);
+    }
+
+    private void renderHud(DrawContext context) {
         EyeLocatorConfig config = EyeLocatorConfig.get();
         if (!config.enabled) {
             return;
