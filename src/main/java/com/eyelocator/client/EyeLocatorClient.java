@@ -43,7 +43,6 @@ public final class EyeLocatorClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(EyeLocatorClient::onClientTick);
 
         HudRenderCallback.EVENT.register(new HudRenderer());
-        WorldGuide.register();
 
         LOGGER.info("Eye Locator 已加载：扔末影之眼即可自动记录方位。");
     }
