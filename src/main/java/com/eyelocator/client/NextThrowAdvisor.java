@@ -62,6 +62,8 @@ public final class NextThrowAdvisor {
             return null;
         }
 
+        double baseline = EyeLocatorConfig.get().baseline;
+
         // 方位线的单位法线
         double nx = -ray.dz;
         double nz = ray.dx;
@@ -75,15 +77,15 @@ public final class NextThrowAdvisor {
         double side = (px - ray.x) * nx + (pz - ray.z) * nz;
 
         // 已经横向错开得足够远，原地再扔一次即可，不必再走
-        if (Math.abs(side) >= BASELINE) {
+        if (Math.abs(side) >= baseline) {
             return new Advice(px, pz, 0.0, true);
         }
 
         double sign = side >= 0.0 ? 1.0 : -1.0;
 
-        // 推荐点 = 垂足 + 法线方向 * BASELINE（保持在玩家所在一侧，路程更短）
-        double rx = fx + nx * BASELINE * sign;
-        double rz = fz + nz * BASELINE * sign;
+        // 推荐点 = 垂足 + 法线方向 * baseline（保持在玩家所在一侧，路程更短）
+        double rx = fx + nx * baseline * sign;
+        double rz = fz + nz * baseline * sign;
 
         double travel = Math.hypot(rx - px, rz - pz);
         return new Advice(rx, rz, travel, false);

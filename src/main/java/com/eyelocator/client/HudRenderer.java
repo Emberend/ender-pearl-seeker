@@ -13,93 +13,136 @@ import net.minecraft.util.math.Vec3d;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-/**
- * 2D HUD：
- * <ul>
- *   <li>目标位置投影到屏幕上，用手绘的极简菱形路标标记（抗锯齿、跟随视角、贴边、带距离）。</li>
- *   <li>左上角信息面板：坐标 / 距离 / 样本数 / 置信度。</li>
- * </ul>
- */
+/** 2D HUD：投影路标（支持样式/颜色/大小配置）+ 信息面板 + 已归档要塞标记。 */
 public final class HudRenderer implements HudRenderCallback {
 
     private static final int PANEL_BG = 0x90101010;
-    private static final int COLOR_ACCENT = 0xFF55FF55;
-    private static final int COLOR_ADVICE = 0xFF4FD8FF;
     private static final int COLOR_TEXT = 0xFFE0E0E0;
     private static final int COLOR_DIM = 0xFF9A9A9A;
-
-    private static final int MARKER_RADIUS = 11;
-    private static final float MARKER_THICKNESS = 3.0f;
+    private static final int BASE_RADIUS = 11;
     private static final int MARGIN = 22;
 
     @Override
     public void onHudRender(DrawContext context, RenderTickCounter tickCounter) {
+        EyeLocatorConfig config = EyeLocatorConfig.get();
+        if (!config.enabled) {
+            return;
+        }
+
         MinecraftClient mc = MinecraftClient.getInstance();
         ClientPlayerEntity player = mc.player;
         if (player == null || mc.world == null || mc.options.hudHidden) {
             return;
         }
 
-        // 用插值坐标，避免逐 tick 跳变
         Vec3d playerPos = player.getLerpedPos(tickCounter.getTickDelta(false));
-
         StrongholdLocator locator = EyeLocatorClient.LOCATOR;
 
         if (locator.hasEstimate()) {
-            renderEstimate(context, mc, playerPos, locator);
-            return;
+            renderEstimate(context, mc, playerPos, locator, config);
+        } else {
+            NextThrowAdvisor.Advice advice = NextThrowAdvisor.advise(playerPos.x, playerPos.z, locator);
+            if (advice != null) {
+                renderAdvice(context, mc, advice, config);
+            } else if (locator.sampleCount() > 0) {
+                context.drawTextWithShadow(mc.textRenderer,
+                        Text.literal("末影之眼方位已记录，再扔一次即可三角定位"), 6, 6, COLOR_DIM);
+            }
         }
 
-        NextThrowAdvisor.Advice advice = NextThrowAdvisor.advise(playerPos.x, playerPos.z, locator);
-        if (advice != null) {
-            renderAdvice(context, mc, playerPos, advice);
-        } else if (locator.sampleCount() > 0) {
-            context.drawTextWithShadow(mc.textRenderer,
-                    Text.literal("末影之眼方位已记录，再扔一次即可三角定位"), 6, 6, COLOR_DIM);
+        if (config.showArchived) {
+            drawArchivedMarkers(context, mc, config);
         }
     }
 
     private void renderEstimate(DrawContext context, MinecraftClient mc, Vec3d playerPos,
-                                StrongholdLocator locator) {
+                                StrongholdLocator locator, EyeLocatorConfig config) {
         double distance = Math.hypot(locator.estX() - playerPos.x, locator.estZ() - playerPos.z);
 
-        drawPanel(context, mc,
-                new String[]{
-                        String.format("末地要塞 ≈  X:%.0f  Z:%.0f", locator.estX(), locator.estZ()),
-                        String.format("距离 %d 格   样本 %d 条   置信度 %d%%",
-                                Math.round(distance), locator.sampleCount(),
-                                Math.round(locator.confidence() * 100)),
-                        "[K] 清除记录"
-                },
-                new int[]{COLOR_ACCENT, COLOR_TEXT, COLOR_DIM});
+        if (config.showPanel) {
+            String sampleInfo = locator.excluded() > 0
+                    ? String.format("样本 %d（剔除 %d）", locator.sampleCount(), locator.excluded())
+                    : String.format("样本 %d", locator.sampleCount());
+            drawPanel(context, mc, new String[]{
+                    String.format("末地要塞 ≈  X:%.0f  Z:%.0f", locator.estX(), locator.estZ()),
+                    String.format("距离 %d 格 · %s · 置信度 %d%%",
+                            Math.round(distance), sampleInfo, Math.round(locator.confidence() * 100)),
+                    String.format("归档 %d 个要塞 · [K] 清除", StrongholdRegistry.size())
+            }, new int[]{config.strongholdColor(), COLOR_TEXT, COLOR_DIM});
+        }
 
-        drawWaypoint(context, mc, locator.estX(), locator.estZ(), distance, COLOR_ACCENT, null);
+        drawWaypoint(context, mc, locator.estX(), locator.estZ(), distance,
+                config.strongholdColor(), null, config);
     }
 
-    private void renderAdvice(DrawContext context, MinecraftClient mc, Vec3d playerPos,
-                              NextThrowAdvisor.Advice advice) {
+    private void renderAdvice(DrawContext context, MinecraftClient mc,
+                              NextThrowAdvisor.Advice advice, EyeLocatorConfig config) {
         if (advice.alreadyOptimal) {
-            drawPanel(context, mc,
-                    new String[]{"当前站位已与首次方位错开足够远", "直接原地再扔一次即可锁定要塞", "[K] 清除记录"},
-                    new int[]{COLOR_ADVICE, COLOR_TEXT, COLOR_DIM});
+            if (config.showPanel) {
+                drawPanel(context, mc,
+                        new String[]{"当前站位已与首次方位错开足够远", "直接原地再扔一次即可锁定要塞", "[K] 清除记录"},
+                        new int[]{config.adviceColor(), COLOR_TEXT, COLOR_DIM});
+            }
             return;
         }
 
-        drawPanel(context, mc,
-                new String[]{
-                        String.format("下一最佳投掷点 ≈  X:%.0f  Z:%.0f", advice.x, advice.z),
-                        String.format("距你 %d 格 · 走到后扔一次即可锁定", Math.round(advice.travel)),
-                        "[K] 清除记录"
-                },
-                new int[]{COLOR_ADVICE, COLOR_TEXT, COLOR_DIM});
+        if (config.showPanel) {
+            drawPanel(context, mc, new String[]{
+                    String.format("下一最佳投掷点 ≈  X:%.0f  Z:%.0f", advice.x, advice.z),
+                    String.format("距你 %d 格 · 走到后扔一次即可锁定", Math.round(advice.travel)),
+                    "[K] 清除记录"
+            }, new int[]{config.adviceColor(), COLOR_TEXT, COLOR_DIM});
+        }
 
-        drawWaypoint(context, mc, advice.x, advice.z, advice.travel, COLOR_ADVICE, "投掷点");
+        drawWaypoint(context, mc, advice.x, advice.z, advice.travel,
+                config.adviceColor(), "投掷点", config);
     }
 
-    /** 把世界坐标目标投影到屏幕，画极简菱形路标。 */
     private void drawWaypoint(DrawContext context, MinecraftClient mc,
                               double targetX, double targetZ, double distance,
-                              int color, String label) {
+                              int color, String label, EyeLocatorConfig config) {
+        int radius = Math.max(4, (int) Math.round(BASE_RADIUS * clamp(config.markerScale, 0.4, 3.0)));
+        int[] pos = project(mc, context, targetX, targetZ, radius + 6);
+        int cx = pos[0];
+        int cy = pos[1];
+
+        drawMarker(context, cx, cy, radius, (float) config.scaledThickness(), color, config.markerStyle);
+
+        if (config.showDistance) {
+            String distText = Math.round(distance) + "m";
+            context.drawTextWithShadow(mc.textRenderer, Text.literal(distText),
+                    cx - mc.textRenderer.getWidth(distText) / 2, cy + radius + 5, 0xFFFFFFFF);
+        }
+        if (config.showLabels && label != null) {
+            context.drawTextWithShadow(mc.textRenderer, Text.literal(label),
+                    cx - mc.textRenderer.getWidth(label) / 2, cy - radius - 13, color);
+        }
+    }
+
+    /** 把已归档的其它要塞画成较小、较暗的路标。 */
+    private void drawArchivedMarkers(DrawContext context, MinecraftClient mc, EyeLocatorConfig config) {
+        String dimension = mc.world.getRegistryKey().getValue().toString();
+        StrongholdLocator locator = EyeLocatorClient.LOCATOR;
+
+        int radius = Math.max(3, (int) Math.round(BASE_RADIUS * 0.6 * clamp(config.markerScale, 0.4, 3.0)));
+        float thickness = Math.max(1.0f, (float) (config.scaledThickness() * 0.7));
+
+        for (StrongholdRegistry.Entry entry : StrongholdRegistry.entries()) {
+            if (!entry.dimension.equals(dimension)) {
+                continue;
+            }
+            if (locator.hasEstimate()
+                    && Math.hypot(entry.x - locator.estX(), entry.z - locator.estZ()) < 128) {
+                continue; // 与当前定位重叠
+            }
+            int[] pos = project(mc, context, entry.x, entry.z, radius + 6);
+            drawMarker(context, pos[0], pos[1], radius, thickness, config.archivedColor(), config.markerStyle);
+        }
+    }
+
+    /** 世界坐标 -> 屏幕坐标（水平方向），超出屏幕贴边。 */
+    private static int[] project(MinecraftClient mc, DrawContext context,
+                                 double targetX, double targetZ, int margin) {
         Vec3d camPos = mc.gameRenderer.getCamera().getPos();
         Quaternionf rotation = mc.gameRenderer.getCamera().getRotation();
 
@@ -107,11 +150,9 @@ public final class HudRenderer implements HudRenderCallback {
         Vector3f right = rotation.transform(new Vector3f(1, 0, 0));
         Vector3f up = rotation.transform(new Vector3f(0, 1, 0));
 
-        // 目标高度锚定在相机高度（插值后的），避免玩家上下移动时路标垂直跳动
+        // 目标高度锚定相机高度，垂直移动时路标不跳动
         Vector3f rel = new Vector3f(
-                (float) (targetX - camPos.x),
-                0.0f,
-                (float) (targetZ - camPos.z));
+                (float) (targetX - camPos.x), 0.0f, (float) (targetZ - camPos.z));
 
         float rx = rel.dot(right);
         float ry = rel.dot(up);
@@ -121,9 +162,9 @@ public final class HudRenderer implements HudRenderCallback {
         int screenH = context.getScaledWindowHeight();
 
         float tanY = (float) Math.tan(Math.toRadians((double) mc.options.getFov().getValue() * 0.5));
-        float aspect = (float) screenW / (float) screenH;
-        float tanX = tanY * aspect;
+        float tanX = tanY * ((float) screenW / (float) screenH);
 
+        int m = Math.max(MARGIN, margin);
         float sx;
         float sy;
         if (rz > 0.5f) {
@@ -132,31 +173,22 @@ public final class HudRenderer implements HudRenderCallback {
             sx = (ndcX * 0.5f + 0.5f) * screenW;
             sy = (0.5f - ndcY * 0.5f) * screenH;
         } else {
-            sx = rx >= 0 ? screenW - MARGIN : MARGIN;
+            sx = rx >= 0 ? screenW - m : m;
             sy = screenH * 0.5f;
         }
-
-        int cx = Math.round(MathHelper.clamp(sx, MARGIN, screenW - MARGIN));
-        int cy = Math.round(MathHelper.clamp(sy, MARGIN, screenH - MARGIN));
-
-        drawSmoothDiamond(context, cx, cy, MARKER_RADIUS, MARKER_THICKNESS, color);
-        drawSmoothDot(context, cx, cy, 1.8, color);
-
-        String distText = Math.round(distance) + "m";
-        context.drawTextWithShadow(mc.textRenderer, Text.literal(distText),
-                cx - mc.textRenderer.getWidth(distText) / 2, cy + MARKER_RADIUS + 5, 0xFFFFFFFF);
-
-        if (label != null) {
-            context.drawTextWithShadow(mc.textRenderer, Text.literal(label),
-                    cx - mc.textRenderer.getWidth(label) / 2, cy - MARKER_RADIUS - 13, color);
-        }
+        int cx = Math.round(MathHelper.clamp(sx, m, screenW - m));
+        int cy = Math.round(MathHelper.clamp(sy, m, screenH - m));
+        return new int[]{cx, cy};
     }
 
     // ---- 抗锯齿自绘图形 ----
 
-    /** 软边菱形描边：逐像素按到菱形边的距离计算覆盖率。 */
-    private static void drawSmoothDiamond(DrawContext context, int cx, int cy, int r,
-                                          float thickness, int color) {
+    private static void drawMarker(DrawContext context, int cx, int cy, int r,
+                                   float thickness, int color, String style) {
+        boolean circle = "circle".equalsIgnoreCase(style);
+        boolean cross = "cross".equalsIgnoreCase(style);
+        boolean diamond = !circle && !cross;
+
         double half = thickness * 0.5;
         int bound = (int) Math.ceil(r + half + 2.0);
         int cr = (color >> 16) & 0xFF;
@@ -164,7 +196,6 @@ public final class HudRenderer implements HudRenderCallback {
         int cb = color & 0xFF;
         int baseA = (color >>> 24) & 0xFF;
 
-        // 菱形四个顶点
         int ax = cx, ay = cy - r;
         int bx = cx + r, by = cy;
         int dx = cx, dy = cy + r;
@@ -174,9 +205,18 @@ public final class HudRenderer implements HudRenderCallback {
             for (int px = cx - bound; px <= cx + bound; px++) {
                 double sx = px + 0.5;
                 double sy = py + 0.5;
-                double dist = Math.min(
-                        Math.min(distToSegment(sx, sy, ax, ay, bx, by), distToSegment(sx, sy, bx, by, dx, dy)),
-                        Math.min(distToSegment(sx, sy, dx, dy, ex, ey), distToSegment(sx, sy, ex, ey, ax, ay)));
+                double dist;
+                if (circle) {
+                    dist = Math.abs(Math.hypot(sx - cx, sy - cy) - r);
+                } else if (cross) {
+                    dist = Math.min(
+                            distToSegment(sx, sy, cx - r, cy, cx + r, cy),
+                            distToSegment(sx, sy, cx, cy - r, cx, cy + r));
+                } else {
+                    dist = Math.min(
+                            Math.min(distToSegment(sx, sy, ax, ay, bx, by), distToSegment(sx, sy, bx, by, dx, dy)),
+                            Math.min(distToSegment(sx, sy, dx, dy, ex, ey), distToSegment(sx, sy, ex, ey, ax, ay)));
+                }
 
                 double cover = clamp01(half + 0.5 - dist);
                 if (cover > 0.01) {
@@ -185,7 +225,6 @@ public final class HudRenderer implements HudRenderCallback {
                         context.fill(px, py, px + 1, py + 1, (a << 24) | (cr << 16) | (cg << 8) | cb);
                     }
                 } else {
-                    // 淡淡的深色光晕，提升亮背景下的可读性
                     double halo = clamp01(half + 2.0 + 0.5 - dist) * 0.32;
                     int a = (int) Math.round(halo * 70);
                     if (a > 0) {
@@ -193,6 +232,10 @@ public final class HudRenderer implements HudRenderCallback {
                     }
                 }
             }
+        }
+
+        if (diamond || circle) {
+            drawSmoothDot(context, cx, cy, 1.8, color);
         }
     }
 
@@ -228,6 +271,10 @@ public final class HudRenderer implements HudRenderCallback {
         double dx = ax + t * abx - px;
         double dy = ay + t * aby - py;
         return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    private static double clamp(double v, double lo, double hi) {
+        return v < lo ? lo : (v > hi ? hi : v);
     }
 
     private static double clamp01(double v) {

@@ -49,7 +49,7 @@ public final class EyeTracker {
         return TRACKED.size();
     }
 
-    public static void tick(ClientWorld world, StrongholdLocator locator) {
+    public static void tick(ClientWorld world) {
         if (TRACKED.isEmpty()) {
             return;
         }
@@ -69,7 +69,8 @@ public final class EyeTracker {
             double dist = Math.hypot(dx, dz);
 
             if (dist >= MIN_MOVE) {
-                locator.addRay(new StrongholdLocator.Ray(track.x, track.z, dx / dist, dz / dist));
+                EyeLocatorClient.onRayCompleted(
+                        new StrongholdLocator.Ray(track.x, track.z, dx / dist, dz / dist));
                 it.remove();
             } else if (++track.age > MAX_AGE_TICKS) {
                 it.remove();
