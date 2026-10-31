@@ -30,6 +30,10 @@ public final class ForgeEyeLocatorScreen extends Screen {
 
     private static final int ROW_HEIGHT = 18;
     private static final int BTN_H = 20;
+    /** 归档页那一排窄按钮：比常规按钮矮一点，好在 320×240 下留出行距。 */
+    private static final int ARCHIVE_BTN_H = 18;
+    /** 小于这个逻辑宽度（320×240 缩放时的常见值）就省略较长的文字。 */
+    private static final int NARROW_WIDTH = 420;
 
     private static final int COLOR_TITLE = 0xFFFFFFFF;
     private static final int COLOR_TEXT = 0xFFE0E0E0;
@@ -69,7 +73,7 @@ public final class ForgeEyeLocatorScreen extends Screen {
                 .bounds(tabsX + tabsW + gap, 24, tabsW, BTN_H).build());
 
         this.addRenderableWidget(Button.builder(Component.literal("完成"), b -> this.onClose())
-                .bounds(this.width / 2 - 50, this.height - 27, 100, BTN_H).build());
+                .bounds(this.width / 2 - 50, this.height - 24, 100, BTN_H).build());
 
         if (this.tab == 0) {
             initSettings();
@@ -152,10 +156,11 @@ public final class ForgeEyeLocatorScreen extends Screen {
 
     private void initArchive() {
         int gap = 4;
-        int navW = 44;
-        int addW = 96;
-        int dedupeW = 54;
-        int clearW = 64;
+        int navW = 42;
+        int addW = 92;
+        int dedupeW = 50;
+        int clearW = 60;
+        // 42 + 42 + 92 + 50 + 60 + 4*4 = 302，320 宽的界面上也能居中放下
         int total = navW * 2 + addW + dedupeW + clearW + gap * 4;
         int x = Math.max(4, (this.width - total) / 2);
         int y = this.height - 46;
@@ -164,16 +169,16 @@ public final class ForgeEyeLocatorScreen extends Screen {
             if (this.page > 0) {
                 this.page--;
             }
-        }).bounds(x, y, navW, BTN_H).build());
+        }).bounds(x, y, navW, ARCHIVE_BTN_H).build());
         x += navW + gap;
 
         this.nextButton = this.addRenderableWidget(Button.builder(Component.literal("下一页"), b -> this.page++)
-                .bounds(x, y, navW, BTN_H).build());
+                .bounds(x, y, navW, ARCHIVE_BTN_H).build());
         x += navW + gap;
 
         this.archiveCurrentButton = this.addRenderableWidget(
                 Button.builder(Component.literal("归档当前坐标"), b -> archiveCurrent())
-                        .bounds(x, y, addW, BTN_H)
+                        .bounds(x, y, addW, ARCHIVE_BTN_H)
                         .tooltip(Tooltip.create(Component.literal("把当前算出的坐标保存到归档，并可命名")))
                         .build());
         x += addW + gap;
@@ -186,13 +191,15 @@ public final class ForgeEyeLocatorScreen extends Screen {
                 this.minecraft.player.displayClientMessage(
                         Component.literal("已合并 " + merged + " 个相近目标"), true);
             }
-        }).bounds(x, y, dedupeW, BTN_H).build());
+        }).bounds(x, y, dedupeW, ARCHIVE_BTN_H).build());
         x += dedupeW + gap;
 
-        this.addRenderableWidget(Button.builder(Component.literal("清空归档"), b -> {
+        this.addRenderableWidget(Button.builder(Component.literal("清空"), b -> {
             ForgeRegistry.clear();
             this.page = 0;
-        }).bounds(x, y, clearW, BTN_H).build());
+        }).bounds(x, y, clearW, ARCHIVE_BTN_H)
+                .tooltip(Tooltip.create(Component.literal("清空全部归档，不可撤销")))
+                .build());
     }
 
     private void archiveCurrent() {
@@ -261,32 +268,47 @@ public final class ForgeEyeLocatorScreen extends Screen {
     private void renderSettingsText(GuiGraphics graphics) {
         LocatorChannel channel = ChannelManager.active();
         StrongholdLocator locator = channel.locator;
-        String status = locator.hasEstimate()
-                ? String.format("%s · X:%.0f Z:%.0f · 样本 %d · 置信 %d%%",
-                        channel.displayName, locator.estX(), locator.estZ(),
-                        locator.sampleCount(), Math.round(locator.confidence() * 100))
-                : String.format("%s · 样本 %d · 尚未定位", channel.displayName, locator.sampleCount());
+        boolean narrow = this.width < NARROW_WIDTH;
+        String status;
+        if (!locator.hasEstimate()) {
+            status = String.format("%s · 样本 %d · 尚未定位",
+                    channel.displayName, locator.sampleCount());
+        } else {
+            String coords = String.format("X:%.0f Z:%.0f", locator.estX(), locator.estZ());
+            status = narrow
+                    ? String.format("%s · %s · 样本 %d",
+                            channel.displayName, coords, locator.sampleCount())
+                    : String.format("%s · %s · 样本 %d · 置信 %d%%",
+                            channel.displayName, coords, locator.sampleCount(),
+                            Math.round(locator.confidence() * 100));
+        }
         graphics.drawCenteredString(this.font, Component.literal(status),
                 this.width / 2, 50, COLOR_DIM);
 
         int bottom = 66 + 24 * 4 + BTN_H + 8;
-        graphics.drawCenteredString(this.font,
-                Component.literal("更多选项：编辑 config/eyelocator.json，或用 /eyelocator 命令"),
+        graphics.drawCenteredString(this.font, Component.literal(narrow
+                        ? "更多选项：config/eyelocator.json 或命令"
+                        : "更多选项：编辑 config/eyelocator.json，或用 /eyelocator 命令"),
                 this.width / 2, bottom, COLOR_DIM);
     }
 
     private void renderArchive(GuiGraphics graphics, int mouseX, int mouseY) {
         String dimension = this.minecraft == null || this.minecraft.level == null
                 ? "" : this.minecraft.level.dimension().location().toString();
+        boolean narrow = this.width < NARROW_WIDTH;
 
         int left = 14;
         int right = this.width - 14;
         int rowTop = 64;
 
         graphics.drawString(this.font,
-                Component.literal("已归档目标（当前维度：" + dimName(dimension) + "）"),
+                Component.literal(narrow
+                        ? "已归档（" + dimName(dimension) + "）"
+                        : "已归档目标（当前维度：" + dimName(dimension) + "）"),
                 left, 48, COLOR_DIM);
-        graphics.drawString(this.font, Component.literal("点击条目可重命名"), right - 90, 48, COLOR_DIM);
+        if (!narrow) {
+            graphics.drawString(this.font, Component.literal("点击条目可重命名"), right - 90, 48, COLOR_DIM);
+        }
 
         this.rowsPerPage = Math.max(3, (this.height - 46 - 8 - rowTop) / ROW_HEIGHT);
 
@@ -328,9 +350,14 @@ public final class ForgeEyeLocatorScreen extends Screen {
             String name = entry.name == null || entry.name.isEmpty() ? "未命名" : entry.name;
             LocatorChannel owner = ChannelManager.byId(entry.channel);
             String channelName = owner == null ? "" : owner.displayName;
-            String text = String.format("%s   X:%.0f Z:%.0f   %s   %s   置信%d%%",
-                    name, entry.x, entry.z, dimName(entry.dimension), channelName,
-                    Math.round(entry.confidence * 100));
+            // 窄屏（320×240）放不下通道名，先省掉它，坐标和维度优先
+            String text = narrow
+                    ? String.format("%s   X:%.0f Z:%.0f   %s   置信%d%%",
+                            name, entry.x, entry.z, dimName(entry.dimension),
+                            Math.round(entry.confidence * 100))
+                    : String.format("%s   X:%.0f Z:%.0f   %s   %s   置信%d%%",
+                            name, entry.x, entry.z, dimName(entry.dimension), channelName,
+                            Math.round(entry.confidence * 100));
             graphics.drawString(this.font, Component.literal(text), left, y + 4,
                     entry.dimension.equals(dimension) ? COLOR_TEXT : COLOR_DIM);
             this.rowBoxes.add(new int[]{left, y - 2, right - left - 22, 16, i});
