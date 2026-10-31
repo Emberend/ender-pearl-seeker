@@ -7,7 +7,6 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
@@ -17,25 +16,20 @@ import org.joml.Vector3f;
 /**
  * 2D HUD：
  * <ul>
- *   <li>目标位置投影到屏幕上，用一个"末影之眼"图标作为路标（跟随视角、贴边、带距离）。</li>
+ *   <li>目标位置投影到屏幕上，用手绘的极简菱形路标标记（跟随视角、贴边、带距离）。</li>
  *   <li>左上角信息面板：坐标 / 距离 / 样本数 / 置信度。</li>
  * </ul>
  */
 public final class HudRenderer implements HudRenderCallback {
-
-    private static final Identifier ENDER_EYE =
-            Identifier.of("minecraft", "textures/item/ender_eye.png");
 
     private static final int PANEL_BG = 0x90101010;
     private static final int COLOR_ACCENT = 0xFF55FF55;
     private static final int COLOR_ADVICE = 0xFF4FD8FF;
     private static final int COLOR_TEXT = 0xFFE0E0E0;
     private static final int COLOR_DIM = 0xFF9A9A9A;
-    private static final int RING_ACCENT = 0xE055FF55;
-    private static final int RING_ADVICE = 0xE04FD8FF;
 
-    private static final int MARKER_RADIUS = 18;
-    private static final int MARGIN = 26;
+    private static final int MARKER_RADIUS = 10;
+    private static final int MARGIN = 22;
 
     @Override
     public void onHudRender(DrawContext context, RenderTickCounter tickCounter) {
@@ -67,16 +61,18 @@ public final class HudRenderer implements HudRenderCallback {
         double dz = locator.estZ() - player.getZ();
         double distance = Math.hypot(dx, dz);
 
-        String coordLine = String.format("末地要塞 ≈  X:%.0f  Z:%.0f", locator.estX(), locator.estZ());
-        String infoLine = String.format("距离 %d 格   样本 %d 条   置信度 %d%%",
-                Math.round(distance), locator.sampleCount(), Math.round(locator.confidence() * 100));
-        String hintLine = "[K] 清除记录";
-
-        drawPanel(context, mc, new String[]{coordLine, infoLine, hintLine},
+        drawPanel(context, mc,
+                new String[]{
+                        String.format("末地要塞 ≈  X:%.0f  Z:%.0f", locator.estX(), locator.estZ()),
+                        String.format("距离 %d 格   样本 %d 条   置信度 %d%%",
+                                Math.round(distance), locator.sampleCount(),
+                                Math.round(locator.confidence() * 100)),
+                        "[K] 清除记录"
+                },
                 new int[]{COLOR_ACCENT, COLOR_TEXT, COLOR_DIM});
 
         drawWaypoint(context, mc, player, locator.estX(), locator.estZ(),
-                distance, RING_ACCENT, "末地要塞", COLOR_ACCENT);
+                distance, COLOR_ACCENT, null);
     }
 
     private void renderAdvice(DrawContext context, MinecraftClient mc, ClientPlayerEntity player,
@@ -97,13 +93,13 @@ public final class HudRenderer implements HudRenderCallback {
                 new int[]{COLOR_ADVICE, COLOR_TEXT, COLOR_DIM});
 
         drawWaypoint(context, mc, player, advice.x, advice.z,
-                advice.travel, RING_ADVICE, "下一投掷点", COLOR_ADVICE);
+                advice.travel, COLOR_ADVICE, "投掷点");
     }
 
-    /** 把一个世界坐标目标投影到屏幕，并画出末影之眼图标路标。 */
+    /** 把世界坐标目标投影到屏幕，画极简菱形路标。 */
     private void drawWaypoint(DrawContext context, MinecraftClient mc, ClientPlayerEntity player,
                               double targetX, double targetZ, double distance,
-                              int ringColor, String label, int labelColor) {
+                              int color, String label) {
         Vec3d camPos = mc.gameRenderer.getCamera().getPos();
         Quaternionf rotation = mc.gameRenderer.getCamera().getRotation();
 
@@ -136,7 +132,6 @@ public final class HudRenderer implements HudRenderCallback {
             sx = (ndcX * 0.5f + 0.5f) * screenW;
             sy = (0.5f - ndcY * 0.5f) * screenH;
         } else {
-            // 目标在身后：贴到左右边缘
             sx = rx >= 0 ? screenW - MARGIN : MARGIN;
             sy = screenH * 0.5f;
         }
@@ -144,28 +139,56 @@ public final class HudRenderer implements HudRenderCallback {
         int cx = Math.round(MathHelper.clamp(sx, MARGIN, screenW - MARGIN));
         int cy = Math.round(MathHelper.clamp(sy, MARGIN, screenH - MARGIN));
 
-        // 圆形底 + 彩色圆环
-        fillCircle(context, cx, cy, MARKER_RADIUS, ringColor);
-        fillCircle(context, cx, cy, MARKER_RADIUS - 3, 0xE0181818);
+        // 深色描边提升可读性，再画彩色菱形
+        drawDiamondOutlined(context, cx, cy, MARKER_RADIUS, 0x90000000, color);
+        // 中心点
+        context.fill(cx - 1, cy - 1, cx + 1, cy + 1, color);
 
-        // 末影之眼图标
-        int iconSize = 22;
-        context.drawTexture(ENDER_EYE, cx - iconSize / 2, cy - iconSize / 2,
-                iconSize, iconSize, 0.0f, 0.0f, 16, 16, 16, 16);
-
-        // 距离（下方）与标签（上方）
+        // 距离（下方）
         String distText = Math.round(distance) + "m";
         context.drawTextWithShadow(mc.textRenderer, Text.literal(distText),
-                cx - mc.textRenderer.getWidth(distText) / 2, cy + MARKER_RADIUS + 3, 0xFFFFFFFF);
-        context.drawTextWithShadow(mc.textRenderer, Text.literal(label),
-                cx - mc.textRenderer.getWidth(label) / 2, cy - MARKER_RADIUS - 12, labelColor);
+                cx - mc.textRenderer.getWidth(distText) / 2, cy + MARKER_RADIUS + 4, 0xFFFFFFFF);
+
+        // 标签（上方，可选）
+        if (label != null) {
+            context.drawTextWithShadow(mc.textRenderer, Text.literal(label),
+                    cx - mc.textRenderer.getWidth(label) / 2, cy - MARKER_RADIUS - 12, color);
+        }
     }
 
-    private static void fillCircle(DrawContext context, int cx, int cy, int radius, int color) {
-        int r2 = radius * radius;
-        for (int dy = -radius; dy <= radius; dy++) {
-            int w = (int) Math.floor(Math.sqrt((double) (r2 - dy * dy)));
-            context.fill(cx - w, cy + dy, cx + w, cy + dy + 1, color);
+    private static void drawDiamondOutlined(DrawContext context, int cx, int cy, int r,
+                                            int outlineColor, int color) {
+        drawDiamond(context, cx, cy, r + 1, outlineColor);
+        drawDiamond(context, cx, cy, r, color);
+    }
+
+    private static void drawDiamond(DrawContext context, int cx, int cy, int r, int color) {
+        drawLine(context, cx, cy - r, cx + r, cy, color);
+        drawLine(context, cx + r, cy, cx, cy + r, color);
+        drawLine(context, cx, cy + r, cx - r, cy, color);
+        drawLine(context, cx - r, cy, cx, cy - r, color);
+    }
+
+    private static void drawLine(DrawContext context, int x1, int y1, int x2, int y2, int color) {
+        int dx = Math.abs(x2 - x1);
+        int dy = -Math.abs(y2 - y1);
+        int sx = x1 < x2 ? 1 : -1;
+        int sy = y1 < y2 ? 1 : -1;
+        int err = dx + dy;
+        while (true) {
+            context.fill(x1, y1, x1 + 1, y1 + 1, color);
+            if (x1 == x2 && y1 == y2) {
+                return;
+            }
+            int e2 = 2 * err;
+            if (e2 >= dy) {
+                err += dy;
+                x1 += sx;
+            }
+            if (e2 <= dx) {
+                err += dx;
+                y1 += sy;
+            }
         }
     }
 
