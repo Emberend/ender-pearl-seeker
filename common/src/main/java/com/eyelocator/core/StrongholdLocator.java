@@ -35,12 +35,13 @@ public final class StrongholdLocator {
     private static final double BEHIND_TOLERANCE = 1.0;
 
     /**
-     * 交点到投掷点的最大可信距离（格）。
+     * 两条射线夹角的下限（弧度）。
      *
-     * <p>末影之眼一类道具的探测半径通常是 100 区块（约 1600 格），这里留足余量取 5000。
-     * 超过这个距离基本只可能是两条方位几乎平行、最小二乘把交点推到了极远处，结果不可信。</p>
+     * <p>夹角太小时交点对方向误差极其敏感，结果不可信。这里刻意<strong>不</strong>用"交点距离上限"
+     * 来判断——模组可能改变结构间距、生成范围甚至探测半径，距离本身说明不了对错；
+     * 夹角则只取决于玩家自己的两次投掷位置，与目标多远无关。</p>
      */
-    private static final double MAX_TRUSTED_DISTANCE = 5000.0;
+    private static final double MIN_CROSS_ANGLE = Math.toRadians(1.5);
 
     private final List<Ray> rays = new ArrayList<>();
     private final List<Ray> usedRays = new ArrayList<>();
@@ -254,7 +255,8 @@ public final class StrongholdLocator {
                     sawBehind = true;
                     continue;
                 }
-                if (ta > MAX_TRUSTED_DISTANCE || tb > MAX_TRUSTED_DISTANCE) {
+                // 夹角太小：交点位置对方向误差极其敏感，不能当作可信结果
+                if (acuteAngle(a, b) < MIN_CROSS_ANGLE) {
                     continue;
                 }
 
