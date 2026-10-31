@@ -81,7 +81,7 @@
 
 ## 构建
 
-需要 JDK 21+（已在 JDK 25 + Gradle 9.8.2 上验证）。为避免污染全局缓存，建议把 Gradle 缓存放在项目内：
+需要 JDK 25+（Loom 1.19 要求；Mod 本身编译目标仍是 Java 21，游戏运行不受影响）。为避免污染全局缓存，建议把 Gradle 缓存放在项目内：
 
 ```bash
 GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew build
