@@ -13,8 +13,8 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 
 /**
- * Eye Locator 管理界面。刻意只保留少量直观选项；
- * 高级参数（粗细、基线、阈值等）请编辑 config/eyelocator.json。
+ * Eye Locator 管理界面。设置页只保留少量直观选项；
+ * 归档页支持：归档当前坐标并命名、点击条目重命名、删除、去重、清空。
  */
 public final class EyeLocatorScreen extends Screen {
 
@@ -28,6 +28,7 @@ public final class EyeLocatorScreen extends Screen {
     private int page = 0;
 
     private final List<int[]> deleteBoxes = new ArrayList<>();
+    private final List<int[]> rowBoxes = new ArrayList<>();
 
     public EyeLocatorScreen(Screen parent) {
         super(Text.literal("Eye Locator 管理"));
@@ -59,6 +60,8 @@ public final class EyeLocatorScreen extends Screen {
         page = 0;
         this.clearAndInit();
     }
+
+    // ---- 设置页 ----
 
     private void initSettings() {
         EyeLocatorConfig cfg = EyeLocatorConfig.get();
@@ -101,19 +104,77 @@ public final class EyeLocatorScreen extends Screen {
         addDrawableChild(reset);
     }
 
+    // ---- 归档页 ----
+
     private void initArchive() {
-        addDrawableChild(ButtonWidget.builder(Text.literal("上一页"), b -> {
+        int y = this.height - 52;
+        int h = 20;
+        int gap = 6;
+        int navW = 55;
+        int addW = 110;
+        int dedupeW = 70;
+        int clearW = 70;
+
+        int total = navW * 2 + addW + dedupeW + clearW + gap * 4;
+        int x = Math.max(8, (this.width - total) / 2);
+
+        ButtonWidget prev = ButtonWidget.builder(Text.literal("上一页"), b -> {
             if (page > 0) {
                 page--;
             }
-        }).dimensions(this.width / 2 - 155, this.height - 52, 70, 20).build());
+        }).dimensions(x, y, navW, h).build();
+        prev.active = page > 0;
+        addDrawableChild(prev);
+        x += navW + gap;
+
         addDrawableChild(ButtonWidget.builder(Text.literal("下一页"), b -> page++)
-                .dimensions(this.width / 2 - 80, this.height - 52, 70, 20).build());
+                .dimensions(x, y, navW, h).build());
+        x += navW + gap;
+
+        ButtonWidget addCurrent = ButtonWidget.builder(Text.literal("归档当前坐标"), b -> archiveCurrent())
+                .dimensions(x, y, addW, h).build();
+        addCurrent.active = EyeLocatorClient.LOCATOR.hasEstimate();
+        addCurrent.setTooltip(Tooltip.of(Text.literal("把当前算出的要塞坐标保存到归档，并可命名")));
+        addDrawableChild(addCurrent);
+        x += addW + gap;
+
+        addDrawableChild(ButtonWidget.builder(Text.literal("去重"), b -> {
+            int merged = StrongholdRegistry.dedupe(EyeLocatorConfig.get().dedupeDistance);
+            page = 0;
+            if (this.client != null && this.client.player != null) {
+                this.client.player.sendMessage(Text.literal("已合并 " + merged + " 个相近要塞"), true);
+            }
+        }).dimensions(x, y, dedupeW, h).build());
+        x += dedupeW + gap;
+
         addDrawableChild(ButtonWidget.builder(Text.literal("清空归档"), b -> {
             StrongholdRegistry.clear();
             page = 0;
-        }).dimensions(this.width / 2 + 5, this.height - 52, 150, 20).build());
+        }).dimensions(x, y, clearW, h).build());
     }
+
+    private void archiveCurrent() {
+        StrongholdLocator locator = EyeLocatorClient.LOCATOR;
+        if (!locator.hasEstimate() || this.client == null || this.client.world == null) {
+            return;
+        }
+        String dimension = this.client.world.getRegistryKey().getValue().toString();
+        double x = locator.estX();
+        double z = locator.estZ();
+        this.client.setScreen(new TextPromptScreen(this, "归档当前坐标", "",
+                name -> StrongholdRegistry.add(name, x, z, dimension)));
+    }
+
+    private void renameEntry(StrongholdRegistry.Entry entry) {
+        if (this.client == null) {
+            return;
+        }
+        String initial = entry.name == null ? "" : entry.name;
+        this.client.setScreen(new TextPromptScreen(this, "重命名要塞", initial,
+                name -> StrongholdRegistry.rename(entry, name)));
+    }
+
+    // ---- 通用控件 ----
 
     private ButtonWidget cycle(String name, Supplier<String> value, Runnable action,
                                int x, int y, int w, int h) {
@@ -159,13 +220,16 @@ public final class EyeLocatorScreen extends Screen {
 
         int left = 20;
         int right = this.width - 20;
-        int rowY = 72;
+        int rowY = 70;
 
         context.drawTextWithShadow(this.textRenderer,
                 Text.literal("已归档要塞（当前维度： " + dimName(dimension) + "）"), left, 44, 0xFFAAAAAA);
+        context.drawTextWithShadow(this.textRenderer,
+                Text.literal("点击条目可重命名"), right - 90, 44, 0xFF777777);
 
         List<StrongholdRegistry.Entry> all = StrongholdRegistry.entries();
         deleteBoxes.clear();
+        rowBoxes.clear();
         if (all.isEmpty()) {
             context.drawTextWithShadow(this.textRenderer, Text.literal("暂无归档"), left, rowY, 0xFF888888);
             return;
@@ -180,10 +244,13 @@ public final class EyeLocatorScreen extends Screen {
             StrongholdRegistry.Entry entry = all.get(i);
             int y = rowY + (i - start) * ROW_HEIGHT;
 
-            String text = String.format("X: %.0f   Z: %.0f   %s   置信 %d%%",
-                    entry.x, entry.z, dimName(entry.dimension), Math.round(entry.confidence * 100));
+            String name = entry.name == null || entry.name.isEmpty() ? "未命名" : entry.name;
+            String text = String.format("%s   X:%.0f Z:%.0f   %s   置信%d%%",
+                    name, entry.x, entry.z, dimName(entry.dimension),
+                    Math.round(entry.confidence * 100));
             context.drawTextWithShadow(this.textRenderer, Text.literal(text), left, y + 4,
                     entry.dimension.equals(dimension) ? 0xFFE0E0E0 : 0xFF909090);
+            rowBoxes.add(new int[]{left, y - 2, right - left - 22, 16, i});
 
             int boxX = right - 18;
             boolean hovered = mouseX >= boxX && mouseX <= boxX + 14 && mouseY >= y && mouseY <= y + 14;
@@ -202,8 +269,7 @@ public final class EyeLocatorScreen extends Screen {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (tab == 1 && button == 0) {
             for (int[] box : deleteBoxes) {
-                if (mouseX >= box[0] && mouseX <= box[0] + box[2]
-                        && mouseY >= box[1] && mouseY <= box[1] + box[3]) {
+                if (inside(mouseX, mouseY, box)) {
                     List<StrongholdRegistry.Entry> all = StrongholdRegistry.entries();
                     int index = box[4];
                     if (index >= 0 && index < all.size()) {
@@ -212,8 +278,23 @@ public final class EyeLocatorScreen extends Screen {
                     return true;
                 }
             }
+            for (int[] box : rowBoxes) {
+                if (inside(mouseX, mouseY, box)) {
+                    List<StrongholdRegistry.Entry> all = StrongholdRegistry.entries();
+                    int index = box[4];
+                    if (index >= 0 && index < all.size()) {
+                        renameEntry(all.get(index));
+                    }
+                    return true;
+                }
+            }
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    private static boolean inside(double mouseX, double mouseY, int[] box) {
+        return mouseX >= box[0] && mouseX <= box[0] + box[2]
+                && mouseY >= box[1] && mouseY <= box[1] + box[3];
     }
 
     @Override

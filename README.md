@@ -46,7 +46,11 @@
 按 `I`（可在“按键设置”里改）或输入 `/eyelocator gui` 打开。两个标签页：
 
 - **设置**：只保留看得懂的几项——路标样式、路标大小、显示距离、显示旧要塞标记、找新要塞时隐藏旧标记、恢复默认（每项都有悬停说明）。
-- **归档**：列出已保存的要塞（坐标、维度、置信度），可逐个删除或一键清空。
+- **归档**：
+  - 「归档当前坐标」：把当前算出的要塞坐标保存进归档，并弹窗命名；
+  - 点击任意条目即可**重命名**；
+  - 每条右侧 `×` 删除；「去重」合并同维度距离过近的条目；「清空归档」清空；
+  - 支持分页。自定义名称会显示在对应路标上。
 
 更细的参数（描边粗细、投掷基线、异常阈值、换要塞判定、颜色等）不放进界面，编辑 `config/eyelocator.json` 即可。
 
@@ -69,7 +73,7 @@
 | `/eyelocator color advice <#RRGGBB>` | 投掷点路标颜色 |
 | `/eyelocator archived <true\|false>` | 是否显示已归档要塞标记 |
 
-配置文件主要字段：`markerStyle`、`markerScale`、`markerThickness`、`colorStronghold`、`colorAdvice`、`colorArchived`、`showDistance`、`showLabels`、`showPanel`、`baseline`、`outlierResidual`、`detectStrongholdChange`、`changeDistance`、`showArchived`、`hideArchivedWhileSearching`。
+配置文件主要字段：`markerStyle`、`markerScale`、`markerThickness`、`colorStronghold`、`colorAdvice`、`colorArchived`、`showDistance`、`showLabels`、`showPanel`、`baseline`、`outlierResidual`、`detectStrongholdChange`、`changeDistance`、`showArchived`、`hideArchivedWhileSearching`、`dedupeDistance`。
 
 ## 构建
 

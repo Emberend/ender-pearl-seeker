@@ -23,6 +23,8 @@ public final class StrongholdRegistry {
         public double confidence;
         public int hits;
         public String dimension;
+        /** 玩家自定义名称，可为空。 */
+        public String name;
 
         Entry() {
         }
@@ -90,6 +92,65 @@ public final class StrongholdRegistry {
             save();
         }
         return removed;
+    }
+
+    /** 手动归档一个坐标，可带名称。 */
+    public static Entry add(String name, double x, double z, String dimension) {
+        Entry entry = new Entry(x, z, 1.0, dimension);
+        entry.name = normalizeName(name);
+        ENTRIES.add(entry);
+        save();
+        return entry;
+    }
+
+    public static void rename(Entry entry, String name) {
+        entry.name = normalizeName(name);
+        save();
+    }
+
+    /**
+     * 合并同维度内距离小于 {@code threshold} 的归档，返回被合并掉的条目数。
+     */
+    public static int dedupe(double threshold) {
+        int removed = 0;
+        for (int i = 0; i < ENTRIES.size(); i++) {
+            Entry a = ENTRIES.get(i);
+            for (int j = i + 1; j < ENTRIES.size(); ) {
+                Entry b = ENTRIES.get(j);
+                if (a.dimension.equals(b.dimension)
+                        && Math.hypot(a.x - b.x, a.z - b.z) < threshold) {
+                    double w1 = Math.max(0.05, a.confidence);
+                    double w2 = Math.max(0.05, b.confidence);
+                    a.x = (a.x * w1 + b.x * w2) / (w1 + w2);
+                    a.z = (a.z * w1 + b.z * w2) / (w1 + w2);
+                    a.confidence = Math.max(a.confidence, b.confidence);
+                    a.hits += b.hits;
+                    if (isEmpty(a.name) && !isEmpty(b.name)) {
+                        a.name = b.name;
+                    }
+                    ENTRIES.remove(j);
+                    removed++;
+                } else {
+                    j++;
+                }
+            }
+        }
+        if (removed > 0) {
+            save();
+        }
+        return removed;
+    }
+
+    private static String normalizeName(String name) {
+        if (name == null) {
+            return null;
+        }
+        String trimmed = name.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private static boolean isEmpty(String s) {
+        return s == null || s.isEmpty();
     }
 
     public static int size() {

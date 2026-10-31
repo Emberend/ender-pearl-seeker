@@ -50,6 +50,8 @@ public final class EyeLocatorConfig {
     public boolean showArchived = true;
     /** 正在寻找新要塞（尚未形成当前交点）时，隐藏已归档要塞的标记。 */
     public boolean hideArchivedWhileSearching = true;
+    /** 去重时：距离小于该值（同维度）的归档会被视为同一个要塞并合并。 */
+    public double dedupeDistance = 48.0;
 
     private EyeLocatorConfig() {
     }

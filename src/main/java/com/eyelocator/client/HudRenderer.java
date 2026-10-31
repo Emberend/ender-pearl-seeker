@@ -138,6 +138,12 @@ public final class HudRenderer implements HudRenderCallback {
             }
             int[] pos = project(mc, context, entry.x, entry.z, radius + 6);
             drawMarker(context, pos[0], pos[1], radius, thickness, config.archivedColor(), config.markerStyle);
+
+            if (config.showLabels && entry.name != null && !entry.name.isEmpty()) {
+                context.drawTextWithShadow(mc.textRenderer, Text.literal(entry.name),
+                        pos[0] - mc.textRenderer.getWidth(entry.name) / 2,
+                        pos[1] - radius - 11, config.archivedColor());
+            }
         }
     }
 
