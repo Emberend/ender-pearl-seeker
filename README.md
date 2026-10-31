@@ -1,9 +1,71 @@
-# Example Mod
+# Eye Locator
 
-## Setup
+用**末影之眼**自动三角定位末地要塞的 Fabric 客户端 Mod。不用任何指令，扔几次末影之眼就能算出要塞坐标，并在屏幕上给出距离、方向指引线和路标。
 
-For setup instructions, please see the [Fabric Documentation page](https://docs.fabricmc.net/develop/getting-started/creating-a-project#setting-up) related to the IDE that you are using.
+- Minecraft **1.21.1** / Fabric
+- 纯**客户端** Mod（单人、联机都能用，不需要装到服务端）
+- 依赖 [Fabric API](https://modrinth.com/mod/fabric-api)
 
-## License
+## 功能
 
-This template is available under the CC0 license. Feel free to learn from it and incorporate it in your own projects.
+- **自动三角定位**：扔出的末影之眼会被追踪，自动提取它飞行的方向，多条方向线求交点即要塞位置。
+- **HUD 信息**：左上角显示估计坐标、水平距离、样本数、置信度和拟合残差。
+- **方向罗盘**：屏幕上方一个圆点，相对屏幕中心的方向就是要塞相对你视线的方向。
+- **世界指引**：世界内绘制一条从你指向要塞的地面直线，并在目标处画地面方框 + 竖直光柱作为路标。
+- **自管理**：切换维度自动清空；按 `K` 手动清除当前记录。
+
+## 使用方法
+
+1. 装好 Fabric Loader + Fabric API，把 `eyelocator-*.jar` 放进 `mods/`。
+2. 进入游戏，拿末影之眼。
+3. **站着不动**扔第一次，记录第 1 条方位（此时还只有方向，没有交点）。
+4. 沿**垂直于眼睛飞行方向**走 150~300 格，再扔一次。两条不平行的方向线一相交，HUD 立刻显示要塞坐标。
+5. 想要更准可以再换位置扔第 3、4 次，样本越多、残差越小，置信度越高。
+6. 跟着世界里的绿色指引线走过去即可；到达后眼睛会明显向下掉/原地打转。
+7. 换要塞/找完了按 `K` 清空。
+
+> 关键：两次投掷的位置要**横向错开**，方向线越不平行，交点越准。站原地重复扔同方向不会提升精度（会被自动去重）。
+
+## 原理
+
+一次末影之眼给出的是"从投掷点指向最近要塞的一条水平射线"。把每次投掷建模成直线：
+
+- 直线过点 `P=(x,z)`，方向单位向量 `d=(dx,dz)`
+- 其法线 `n=(-dz, dx)`，直线方程 `n·X = n·P`
+
+对多条直线堆叠后用最小二乘解 2x2 法方程，得到所有射线的最佳交点，即要塞水平坐标。残差（各线到交点的垂直距离 RMS）和方向分散度共同决定置信度。
+
+末影之眼只指向**最近**的要塞；要塞位置本身由游戏确定性生成，Mod 不修改任何游戏逻辑。
+
+## 构建
+
+需要 JDK 21+（已在 JDK 25 + Gradle 9.8.2 上验证）。为避免污染全局缓存，建议把 Gradle 缓存放在项目内：
+
+```bash
+GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew build
+```
+
+产物：`build/libs/eyelocator-<version>.jar`（外加 `-sources.jar`）。
+
+开发运行（需要图形环境）：`./gradlew runClient`。
+
+## 目录结构
+
+```
+src/main/java/com/eyelocator/client/
+├── EyeLocatorClient.java   # 客户端入口：事件注册、按键、维度切换重置
+├── EyeTracker.java         # 追踪末影之眼实体，产出方位射线
+├── StrongholdLocator.java  # 最小二乘求交，坐标/残差/置信度
+├── HudRenderer.java        # 2D HUD：坐标面板 + 方向罗盘
+└── WorldGuide.java         # 3D 世界指引线 + 路标
+```
+
+## 已知限制
+
+- 只按水平面求交，目标高度以玩家脚下为基准绘制指引线，不做地形高度采样。
+- 世界指引线有深度测试，可能被地形遮挡；HUD 罗盘始终可见。
+- 目前记录仅在当前会话有效（未做跨游戏持久化）。
+
+## 许可
+
+MIT

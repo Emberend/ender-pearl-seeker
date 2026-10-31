@@ -73,9 +73,9 @@ public final class HudRenderer implements HudRenderCallback {
         double yawRad = Math.toRadians(player.getYaw());
         double forwardX = -MathHelper.sin((float) yawRad);
         double forwardZ = MathHelper.cos((float) yawRad);
-        // 视线右方向：forward 顺时针旋转 90°
-        double rightX = forwardZ;
-        double rightZ = -forwardX;
+        // 视线右方向（面朝北时右手指向东 +X）
+        double rightX = -forwardZ;
+        double rightZ = forwardX;
 
         double len = Math.hypot(dx, dz);
         if (len < 1e-4) {
