@@ -48,6 +48,11 @@ public final class StrongholdLocator {
         return rays.size();
     }
 
+    /** 最近一条方位射线；没有则返回 null。 */
+    public Ray lastRay() {
+        return rays.isEmpty() ? null : rays.get(rays.size() - 1);
+    }
+
     public boolean hasEstimate() {
         return hasEstimate;
     }
