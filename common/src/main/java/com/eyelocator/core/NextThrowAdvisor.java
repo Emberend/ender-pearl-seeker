@@ -14,7 +14,10 @@ package com.eyelocator.core;
  *
  * <p>如果上一次两条方位互相矛盾（{@link StrongholdLocator#inconsistent()}），
  * 说明它们已经指向不同要塞，这时走 400 格也解不出正确结果，改为让玩家小幅侧移后补投一次，
- * 由稳健拟合自动剔除矛盾的那条。</p>
+ * 由投票拟合自动剔除矛盾的那条。</p>
+ *
+ * <p>推荐点锚定在第一次投掷点上，玩家边走边看时路标不会跟着滑动；
+ * 横向固定取射线右侧，同一组方位只对应一个坐标。</p>
  */
 public final class NextThrowAdvisor {
 
@@ -84,22 +87,16 @@ public final class NextThrowAdvisor {
         double nx = -ray.dz;
         double nz = ray.dx;
 
-        // 把玩家投影到方位线上，得到垂足 F
-        double t = (px - ray.x) * ray.dx + (pz - ray.z) * ray.dz;
-        double fx = ray.x + t * ray.dx;
-        double fz = ray.z + t * ray.dz;
-
-        // 玩家当前在这条线的哪一侧（有符号垂距）
+        // 玩家当前在这条线的哪一侧（有符号垂距），只用来判断"是否已经错开够远"
         double side = (px - ray.x) * nx + (pz - ray.z) * nz;
-        double sign = side >= 0.0 ? 1.0 : -1.0;
 
         // 上次方位互相矛盾：走 400 格没有意义，小幅侧移后补投，让第三次方位来纠正
         if (locator.inconsistent()) {
             if (Math.abs(side) >= RETHROW_LATERAL) {
                 return new Advice(px, pz, 0.0, Kind.RETHROW);
             }
-            double rx = fx + nx * RETHROW_LATERAL * sign + ray.dx * RETHROW_FORWARD;
-            double rz = fz + nz * RETHROW_LATERAL * sign + ray.dz * RETHROW_FORWARD;
+            double rx = ray.x + nx * RETHROW_LATERAL + ray.dx * RETHROW_FORWARD;
+            double rz = ray.z + nz * RETHROW_LATERAL + ray.dz * RETHROW_FORWARD;
             return new Advice(rx, rz, Math.hypot(rx - px, rz - pz), Kind.RETHROW);
         }
 
@@ -111,9 +108,11 @@ public final class NextThrowAdvisor {
             return new Advice(px, pz, 0.0, Kind.THROW_HERE);
         }
 
-        // 推荐点 = 垂足 + 法线方向 * lateral + 射线方向 * forward（保持在玩家所在一侧）
-        double rx = fx + nx * lateral * sign + ray.dx * forward;
-        double rz = fz + nz * lateral * sign + ray.dz * forward;
+        // 推荐点锚定在"第一次投掷点"，而不是玩家当前位置：
+        // 否则垂足会随着玩家移动而滑动，路标一直漂，沿着射线走甚至永远追不上。
+        // 左右侧固定取射线右侧，保证同一个方位只对应一个固定坐标。
+        double rx = ray.x + nx * lateral + ray.dx * forward;
+        double rz = ray.z + nz * lateral + ray.dz * forward;
 
         double travel = Math.hypot(rx - px, rz - pz);
         return new Advice(rx, rz, travel, locator.unstable() ? Kind.MOVE_WIDER : Kind.MOVE);
