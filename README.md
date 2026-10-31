@@ -47,6 +47,15 @@ GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew build
 
 产物：`build/libs/eyelocator-<version>.jar`（外加 `-sources.jar`）。
 
+### 一键部署到游戏
+构建并自动复制到本机 mods 目录（会先删掉旧的 `eyelocator-*.jar`，避免重复 mod id）：
+
+```bash
+GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew deployMod
+```
+
+默认目标：`/home/ash/Minecraft_Java/.minecraft/versions/1.21.1-Fabric/mods`，可用 `-PmodsDir=<路径>` 或环境变量 `MC_MODS_DIR` 覆盖。
+
 开发运行（需要图形环境）：`./gradlew runClient`。
 
 ## 目录结构

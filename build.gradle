@@ -44,3 +44,32 @@ jar {
 		rename { "${it}_${project.base.archivesName.get()}" }
 	}
 }
+
+// 构建后把 remap 好的 mod jar 部署到游戏 mods 目录。
+// 目标目录优先级：-PmodsDir=... > 环境变量 MC_MODS_DIR > 默认路径
+// 用法：./gradlew deployMod
+def modsDirProvider = providers.gradleProperty("modsDir")
+		.orElse(providers.environmentVariable("MC_MODS_DIR"))
+		.orElse("/home/ash/Minecraft_Java/.minecraft/versions/1.21.1-Fabric/mods")
+
+tasks.register("deployMod") {
+	group = "deployment"
+	description = "构建并部署 mod jar 到游戏 mods 目录"
+	dependsOn tasks.remapJar
+	doLast {
+		def dest = file(modsDirProvider.get())
+		dest.mkdirs()
+		def built = tasks.remapJar.archiveFile.get().asFile
+		// 先删掉旧的同名 mod jar，避免重复 mod id
+		dest.listFiles()?.each { f ->
+			if (f.isFile() && f.name ==~ /eyelocator-.*\.jar/) {
+				f.delete()
+			}
+		}
+		copy {
+			from built
+			into dest
+		}
+		println "Deployed ${built.name} -> ${dest}"
+	}
+}
