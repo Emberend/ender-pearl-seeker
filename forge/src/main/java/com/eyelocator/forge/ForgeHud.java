@@ -4,8 +4,6 @@ import com.eyelocator.core.ChannelManager;
 import com.eyelocator.core.LocatorChannel;
 import com.eyelocator.core.NextThrowAdvisor;
 import com.eyelocator.core.StrongholdLocator;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -77,7 +75,7 @@ public final class ForgeHud {
                             locator.estX(), locator.estZ()),
                     String.format("距离 %d 格 · %s · 置信度 %d%%",
                             Math.round(distance), sampleInfo, Math.round(locator.confidence() * 100)),
-                    String.format("归档 %d 个 · [K] 结束当前定位", ForgeRegistry.size(channel.id))
+                    String.format("归档 %d 个 · [K] 结束 · [I] 管理界面", ForgeRegistry.size(channel.id))
             }, new int[]{config.strongholdColor(), COLOR_TEXT, COLOR_DIM});
         }
 
@@ -163,23 +161,42 @@ public final class ForgeHud {
         }
     }
 
-    /** 世界坐标 -> 屏幕坐标（水平方向），超出屏幕贴边。 */
+    /**
+     * 世界坐标 -> 屏幕坐标（水平方向），超出屏幕贴边。
+     *
+     * <p>这里刻意不用 {@code Camera#rotation()} 的四元数：原版在 1.21 改过这个
+     * 四元数的基准约定（1.20.x 是 {@code forwards = rot * (0,0,1)}、{@code left = rot * (1,0,0)}，
+     * 1.21+ 变成了 {@code rot * (0,0,-1)} / {@code rot * (1,0,0)}），同一份代码不可能两边都对。
+     * 改用相机的 yaw/pitch 自己算基向量，语义跨版本一致。</p>
+     */
     private static int[] project(GuiGraphics graphics, Minecraft mc,
                                  double targetX, double targetZ, int margin) {
         Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
-        Quaternionf rotation = mc.gameRenderer.getMainCamera().rotation();
+        float yaw = (float) Math.toRadians(mc.gameRenderer.getMainCamera().getYRot());
+        float pitch = (float) Math.toRadians(mc.gameRenderer.getMainCamera().getXRot());
 
-        Vector3f forward = rotation.transform(new Vector3f(0, 0, -1), new Vector3f());
-        Vector3f right = rotation.transform(new Vector3f(1, 0, 0), new Vector3f());
-        Vector3f up = rotation.transform(new Vector3f(0, 1, 0), new Vector3f());
+        float sinYaw = (float) Math.sin(yaw);
+        float cosYaw = (float) Math.cos(yaw);
+        float sinPitch = (float) Math.sin(pitch);
+        float cosPitch = (float) Math.cos(pitch);
+
+        // 与 Vec3.directionFromRotation 一致的相机朝向
+        float fx = -sinYaw * cosPitch;
+        float fz = cosYaw * cosPitch;
+        // 水平右手方向（yaw=0 朝南 +Z 时指向西 -X）
+        float rxAxis = -cosYaw;
+        float rzAxis = -sinYaw;
+        // 相机上方向 = 右手方向 × 前方向
+        float ux = -sinYaw * sinPitch;
+        float uz = cosYaw * sinPitch;
 
         // 目标高度锚定相机高度，垂直移动时路标不跳动
-        Vector3f rel = new Vector3f(
-                (float) (targetX - camPos.x), 0.0f, (float) (targetZ - camPos.z));
+        float relX = (float) (targetX - camPos.x);
+        float relZ = (float) (targetZ - camPos.z);
 
-        float rx = rel.dot(right);
-        float ry = rel.dot(up);
-        float rz = rel.dot(forward);
+        float rx = relX * rxAxis + relZ * rzAxis;
+        float ry = relX * ux + relZ * uz;
+        float rz = relX * fx + relZ * fz;
 
         int screenW = graphics.guiWidth();
         int screenH = graphics.guiHeight();

@@ -36,6 +36,7 @@ public final class ClientSetup {
     private static final ClientSetup INSTANCE = new ClientSetup();
 
     private static KeyMapping clearKey;
+    private static KeyMapping menuKey;
     private static String currentDimension;
     /** 上一 tick 存在的实体 id，用于发现新加载的实体。 */
     private static Set<Integer> seenEntities = new HashSet<>();
@@ -59,6 +60,10 @@ public final class ClientSetup {
         clearKey = new KeyMapping("key.eyelocator.clear", InputConstants.Type.KEYSYM,
                 GLFW.GLFW_KEY_K, "category.eyelocator");
         event.register(clearKey);
+
+        menuKey = new KeyMapping("key.eyelocator.menu", InputConstants.Type.KEYSYM,
+                GLFW.GLFW_KEY_I, "category.eyelocator");
+        event.register(menuKey);
     }
 
     // ---- 事件 ----
@@ -89,6 +94,10 @@ public final class ClientSetup {
 
         while (clearKey != null && clearKey.consumeClick()) {
             endCurrent();
+        }
+
+        if (menuKey != null && menuKey.consumeClick() && mc.screen == null) {
+            mc.setScreen(new ForgeEyeLocatorScreen(null));
         }
     }
 

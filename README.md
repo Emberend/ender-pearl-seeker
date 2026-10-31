@@ -32,7 +32,7 @@
 
 - Minecraft **1.20.1**（Forge 47.x），下载文件名带 `-forge-1.20.1`
 - 无需任何前置；配置与归档文件与 Fabric 版通用
-- 管理界面暂未移植，所有设置用 `/eyelocator` 命令修改（见下）
+- 管理界面按 `I` 打开（与 Fabric 版同一套布局），也可以用 `/eyelocator` 命令调参
 
 两个版本都是纯**客户端** Mod，单人、联机都能用，不需要装到服务端。
 
@@ -55,7 +55,7 @@
 4. 走到青色标记处（大约横向错开 400 格），再扔一次。两条不平行的方向线一相交，HUD 立刻显示要塞坐标。
 5. 想要更准可以再换位置扔第 3、4 次，样本越多、残差越小，置信度越高；离群样本会被自动剔除。
 6. 跟着绿色路标走过去即可；到达后眼睛会明显向下掉/原地打转。
-7. 找完了按 `K` 结束当前定位、收起 HUD（结果仍保留在归档里）；Fabric 版按 `I` 打开管理界面（设置 + 归档）。
+7. 找完了按 `K` 结束当前定位、收起 HUD（结果仍保留在归档里）；按 `I` 打开管理界面（设置 + 归档），两个加载器都支持。
 
 > 找新要塞时，已归档的旧要塞标记默认会自动隐藏（可在 GUI 或配置里关闭），避免干扰。
 
@@ -158,7 +158,7 @@
 | `/eyelocator channels` | 列出所有定位通道 |
 | `/eyelocator channel <实体id>` | 切换 HUD 显示的通道 |
 
-> `/eyelocator gui`（管理界面）只有 Fabric 版提供；Forge 版用上面的命令调整全部设置，配置项与 Fabric 版完全一致。
+> 上面的命令两个版本都能用；Forge 版同样有 `I` 键管理界面和 `/eyelocator gui`，配置项与 Fabric 版完全一致。
 
 配置文件主要字段：`markerStyle`、`markerScale`、`markerThickness`、`colorStronghold`、`colorAdvice`、`colorArchived`、`showDistance`、`showLabels`、`showPanel`、`baseline`、`outlierResidual`、`detectStrongholdChange`、`changeDistance`、`showArchived`、`hideArchivedWhileSearching`、`dedupeDistance`；兼容相关：`autoDetect`、`autoDetectKeywords`、`trackedEntities`、`channelNames`。
 
@@ -258,12 +258,15 @@ src/main/java/com/eyelocator/client/        # Fabric 适配层
 └── HudRenderer.java         # 2D HUD：信息面板 + 可配置路标 + 归档标记
 
 forge/src/main/java/com/eyelocator/forge/    # Forge 1.20.1 适配层
-├── EyeLocatorForge.java     # 入口、事件、归档/变更检测
+├── EyeLocatorForge.java     # 入口（只做 DistExecutor 延迟加载）
+├── ClientSetup.java         # 客户端事件、按键、归档/变更检测
 ├── ForgeCommands.java       # /eyelocator 客户端命令
 ├── ForgeConfig.java         # 配置（与 Fabric 版共用同一份 JSON）
 ├── ForgeTracker.java        # 实体飞行方向追踪
 ├── ForgeClassifier.java     # 实体识别
 ├── ForgeRegistry.java       # 归档（与 Fabric 版格式相同）
+├── ForgeEyeLocatorScreen.java  # 管理界面（设置 / 归档）
+├── ForgeTextPromptScreen.java  # 命名/重命名输入框
 └── ForgeHud.java            # HUD 渲染
 
 scripts/build-all.sh         # 为所有支持版本批量构建
@@ -290,8 +293,8 @@ scripts/clean-caches.sh      # 清理过期的 Gradle / Loom 缓存
 **版本与平台**
 
 - 1.19 及更早、1.21.9 及更新都没有支持，也不打算在近期补。
-- Forge 版只有 1.20.1，没有管理界面（`I` 键），只能用命令调参；Fabric 版的界面改动也不会同步过去。
-- Forge 版从未启动验证过，连接口行为（HUD 事件、客户端命令、按键）都是照文档写的，可能第一次就报错。
+- Forge 版只有 1.20.1。管理界面与 Fabric 版分开实现，功能对齐但布局细节可能略有差异。
+- Forge 版的 HUD、管理界面、按键只做过「编译通过 + 服务端能启动」的验证，客户端表现需要你实际跑一遍才算数。
 
 **界面**
 

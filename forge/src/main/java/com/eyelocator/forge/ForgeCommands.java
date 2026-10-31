@@ -23,6 +23,12 @@ public final class ForgeCommands {
                     printStatus(ctx.getSource());
                     return 1;
                 })
+                .then(net.minecraft.commands.Commands.literal("gui")
+                        .executes(ctx -> {
+                            net.minecraft.client.Minecraft.getInstance()
+                                    .setScreen(new ForgeEyeLocatorScreen(null));
+                            return 1;
+                        }))
                 .then(net.minecraft.commands.Commands.literal("reload")
                         .executes(ctx -> {
                             ForgeConfig.load();
@@ -138,7 +144,7 @@ public final class ForgeCommands {
         if (ChannelManager.all().size() > 1) {
             feedback(source, "共 " + ChannelManager.all().size() + " 个通道，用 /eyelocator channels 查看");
         }
-        feedback(source, "用法: /eyelocator reload|reset|clearall|style|scale|baseline|color|archived|track|channels|channel");
+        feedback(source, "用法: /eyelocator gui|reload|reset|clearall|style|scale|baseline|color|archived|track|channels|channel");
     }
 
     private static int setColor(CommandSourceStack source, String which, String hex) {

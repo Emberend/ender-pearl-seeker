@@ -14,8 +14,6 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
 
 /** 2D HUD：投影路标（支持样式/颜色/大小配置）+ 信息面板 + 已归档要塞标记。 */
 public final class HudRenderer implements HudRenderCallback {
@@ -162,23 +160,42 @@ public final class HudRenderer implements HudRenderCallback {
         }
     }
 
-    /** 世界坐标 -> 屏幕坐标（水平方向），超出屏幕贴边。 */
+    /**
+     * 世界坐标 -> 屏幕坐标（水平方向），超出屏幕贴边。
+     *
+     * <p>这里刻意不用 {@code Camera#getRotation()} 的四元数：原版在 1.21 改过这个
+     * 四元数的基准约定（1.20.x 是 {@code forwards = rot * (0,0,1)}、{@code left = rot * (1,0,0)}，
+     * 1.21+ 变成了 {@code rot * (0,0,-1)} / {@code rot * (1,0,0)}），同一份代码不可能两边都对。
+     * 改用相机的 yaw/pitch 自己算基向量，语义跨版本一致。</p>
+     */
     private static int[] project(MinecraftClient mc, DrawContext context,
                                  double targetX, double targetZ, int margin) {
         Vec3d camPos = mc.gameRenderer.getCamera().getPos();
-        Quaternionf rotation = mc.gameRenderer.getCamera().getRotation();
+        float yaw = (float) Math.toRadians(mc.gameRenderer.getCamera().getYaw());
+        float pitch = (float) Math.toRadians(mc.gameRenderer.getCamera().getPitch());
 
-        Vector3f forward = rotation.transform(new Vector3f(0, 0, -1));
-        Vector3f right = rotation.transform(new Vector3f(1, 0, 0));
-        Vector3f up = rotation.transform(new Vector3f(0, 1, 0));
+        float sinYaw = (float) Math.sin(yaw);
+        float cosYaw = (float) Math.cos(yaw);
+        float sinPitch = (float) Math.sin(pitch);
+        float cosPitch = (float) Math.cos(pitch);
+
+        // 与 Vec3d.fromPolar / Entity#getRotationVector 一致的相机朝向
+        float fx = -sinYaw * cosPitch;
+        float fz = cosYaw * cosPitch;
+        // 水平右手方向（yaw=0 朝南 +Z 时指向西 -X）
+        float rxAxis = -cosYaw;
+        float rzAxis = -sinYaw;
+        // 相机上方向 = 右手方向 × 前方向
+        float ux = -sinYaw * sinPitch;
+        float uz = cosYaw * sinPitch;
 
         // 目标高度锚定相机高度，垂直移动时路标不跳动
-        Vector3f rel = new Vector3f(
-                (float) (targetX - camPos.x), 0.0f, (float) (targetZ - camPos.z));
+        float relX = (float) (targetX - camPos.x);
+        float relZ = (float) (targetZ - camPos.z);
 
-        float rx = rel.dot(right);
-        float ry = rel.dot(up);
-        float rz = rel.dot(forward);
+        float rx = relX * rxAxis + relZ * rzAxis;
+        float ry = relX * ux + relZ * uz;
+        float rz = relX * fx + relZ * fz;
 
         int screenW = context.getScaledWindowWidth();
         int screenH = context.getScaledWindowHeight();
