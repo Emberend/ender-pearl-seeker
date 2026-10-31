@@ -93,7 +93,7 @@ GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew build
 GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew deployMod
 ```
 
-默认目标：`/home/ash/Minecraft_Java/.minecraft/versions/1.21.1-Fabric/mods`，可用 `-PmodsDir=<路径>` 或环境变量 `MC_MODS_DIR` 覆盖。
+目标目录优先级：`-PmodsDir=<路径>` > 环境变量 `MC_MODS_DIR` > 项目根目录 `local.properties` 里的 `modsDir` > 默认 `~/.minecraft/mods`。`local.properties` 已被 gitignore，适合放本机路径。
 
 开发运行（需要图形环境）：`./gradlew runClient`。
 

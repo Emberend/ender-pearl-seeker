@@ -46,11 +46,16 @@ jar {
 }
 
 // 构建后把 remap 好的 mod jar 部署到游戏 mods 目录。
-// 目标目录优先级：-PmodsDir=... > 环境变量 MC_MODS_DIR > 默认路径
+// 目标目录优先级：-PmodsDir=... > 环境变量 MC_MODS_DIR > local.properties 的 modsDir > 默认 ~/.minecraft/mods
 // 用法：./gradlew deployMod
+def localProps = new Properties()
+def localPropsFile = rootProject.file("local.properties")
+if (localPropsFile.exists()) {
+	localPropsFile.withInputStream { localProps.load(it) }
+}
 def modsDirProvider = providers.gradleProperty("modsDir")
 		.orElse(providers.environmentVariable("MC_MODS_DIR"))
-		.orElse("/home/ash/Minecraft_Java/.minecraft/versions/1.21.1-Fabric/mods")
+		.orElse(localProps.getProperty("modsDir", "${System.getProperty('user.home')}/.minecraft/mods"))
 
 tasks.register("deployMod") {
 	group = "deployment"

@@ -35,3 +35,6 @@ replay_*.log
 
 # Local toolchain / logs
 *.log
+
+# 本地私有配置（例如部署路径）
+local.properties
