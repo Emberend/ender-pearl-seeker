@@ -1,0 +1,37 @@
+# Gradle
+.gradle/
+.gradle-home/
+build/
+out/
+classes/
+
+# Eclipse
+*.launch
+
+# IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# VS Code
+.settings/
+.vscode/
+bin/
+.classpath
+.project
+
+# macOS
+*.DS_Store
+
+# Fabric run dir
+run/
+
+# Java
+hs_err_*.log
+replay_*.log
+*.hprof
+*.jfr
+
+# Local toolchain / logs
+*.log

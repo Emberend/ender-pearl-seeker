@@ -1,0 +1,25 @@
+{
+	"schemaVersion": 1,
+	"id": "eyelocator",
+	"version": "${version}",
+	"name": "Eye Locator",
+	"description": "用末影之眼自动三角定位末地要塞：记录每次投掷的方位角，实时显示要塞坐标、距离与方向指引线/路标。完全客户端运行，联机也可用。",
+	"authors": [
+		"ash"
+	],
+	"contact": {},
+	"license": "MIT",
+	"icon": "assets/eyelocator/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"com.eyelocator.client.EyeLocatorClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.15.0",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}
