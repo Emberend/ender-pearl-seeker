@@ -2,10 +2,10 @@
 	"schemaVersion": 1,
 	"id": "eyelocator",
 	"version": "${version}",
-	"name": "Eye Locator",
-	"description": "用末影之眼自动三角定位末地要塞：记录每次投掷的方位角，实时显示要塞坐标、距离与方向指引线/路标。完全客户端运行，联机也可用。",
+	"name": "末影寻珠",
+	"description": "用末影之眼自动三角定位末地要塞：记录每次投掷的方位角，实时显示要塞坐标、距离与路标。完全客户端运行，联机也可用。",
 	"authors": [
-		"ash"
+		"Emberend"
 	],
 	"contact": {},
 	"license": "MIT",

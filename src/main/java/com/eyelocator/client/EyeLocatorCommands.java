@@ -123,7 +123,7 @@ public final class EyeLocatorCommands {
     private static void printStatus(FabricClientCommandSource source) {
         EyeLocatorConfig cfg = EyeLocatorConfig.get();
         StrongholdLocator locator = EyeLocatorClient.LOCATOR;
-        feedback(source, "=== Eye Locator ===");
+        feedback(source, "=== 末影寻珠 ===");
         feedback(source, String.format("样式 %s · 缩放 %.2f · 粗细 %.1f", cfg.markerStyle, cfg.markerScale, cfg.markerThickness));
         feedback(source, String.format("基线距离 %.0f · 异常阈值 %.0f", cfg.baseline, cfg.outlierResidual));
         feedback(source, String.format("样本 %d · 已归档 %d · %s",

@@ -13,7 +13,7 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 
 /**
- * Eye Locator 管理界面。设置页只保留少量直观选项；
+ * 末影寻珠 管理界面。设置页只保留少量直观选项；
  * 归档页支持：归档当前坐标并命名、点击条目重命名、删除、去重、清空。
  */
 public final class EyeLocatorScreen extends Screen {
@@ -31,7 +31,7 @@ public final class EyeLocatorScreen extends Screen {
     private final List<int[]> rowBoxes = new ArrayList<>();
 
     public EyeLocatorScreen(Screen parent) {
-        super(Text.literal("Eye Locator 管理"));
+        super(Text.literal("末影寻珠 管理"));
         this.parent = parent;
     }
 

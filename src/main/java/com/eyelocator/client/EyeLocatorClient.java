@@ -53,7 +53,7 @@ public final class EyeLocatorClient implements ClientModInitializer {
         HudRenderCallback.EVENT.register(new HudRenderer());
         EyeLocatorCommands.register();
 
-        LOGGER.info("Eye Locator 已加载：扔末影之眼即可自动记录方位。");
+        LOGGER.info("末影寻珠 已加载：扔末影之眼即可自动记录方位。");
     }
 
     private static void onEntityLoad(Entity entity, ClientWorld world) {
