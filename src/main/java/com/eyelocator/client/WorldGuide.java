@@ -74,10 +74,13 @@ public final class WorldGuide {
         Matrix4f mat = matrices.peek().getPositionMatrix();
         VertexConsumer vc = consumers.getBuffer(RenderLayer.getLines());
 
-        double y = mc.player.getY() + 0.08;
+        // 用插值后的玩家位置，避免逐 tick 跳变造成指引线抖动
+        float tickDelta = context.tickCounter().getTickDelta(false);
+        Vec3d playerPos = mc.player.getLerpedPos(tickDelta);
+        double y = playerPos.y + 0.15;
 
         // 1) 玩家 -> 目标的地面直线
-        line(mat, vc, mc.player.getX(), y, mc.player.getZ(), targetX, y, targetZ, color);
+        line(mat, vc, playerPos.x, y, playerPos.z, targetX, y, targetZ, color);
 
         // 2) 目标处的地面方框（边长 4）
         double h = 2.0;
