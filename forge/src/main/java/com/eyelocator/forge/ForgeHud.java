@@ -21,6 +21,7 @@ public final class ForgeHud {
     private static final int PANEL_BG = 0x90101010;
     private static final int COLOR_TEXT = 0xFFE0E0E0;
     private static final int COLOR_DIM = 0xFF9A9A9A;
+    private static final int COLOR_WARN = 0xFFFFA0A0;
     private static final int BASE_RADIUS = 11;
     private static final int MARGIN = 22;
 
@@ -86,7 +87,7 @@ public final class ForgeHud {
     private static void renderAdvice(GuiGraphics graphics, Minecraft mc,
                                      NextThrowAdvisor.Advice advice, LocatorChannel channel,
                                      ForgeConfig config) {
-        if (advice.alreadyOptimal) {
+        if (advice.kind == NextThrowAdvisor.Kind.THROW_HERE) {
             if (config.showPanel) {
                 drawPanel(graphics, mc,
                         new String[]{"当前站位已与首次方位错开足够远", "直接原地再扔一次即可锁定", "[K] 结束当前定位"},
@@ -95,16 +96,32 @@ public final class ForgeHud {
             return;
         }
 
+        String title;
+        String detail;
+        if (advice.kind == NextThrowAdvisor.Kind.RETHROW) {
+            // 两次方位大概指向了不同要塞，继续横移只会更偏
+            title = "两次方位对不上，可能指向不同要塞";
+            detail = advice.travel < 1.0
+                    ? "就在原地再扔一次，会自动剔除矛盾的那条方位"
+                    : String.format("往标记处侧移 %d 格再扔一次，会自动剔除矛盾方位",
+                            Math.round(advice.travel));
+        } else if (advice.kind == NextThrowAdvisor.Kind.MOVE_WIDER) {
+            title = "两条方位夹角太小，交点不可靠";
+            detail = String.format("往标记处横向多走 %d 格再扔一次", Math.round(advice.travel));
+        } else {
+            title = String.format("下一最佳投掷点 ≈  X:%.0f  Z:%.0f", advice.x, advice.z);
+            detail = String.format("距你 %d 格 · 走到后扔一次即可锁定", Math.round(advice.travel));
+        }
+
         if (config.showPanel) {
-            drawPanel(graphics, mc, new String[]{
-                    String.format("下一最佳投掷点 ≈  X:%.0f  Z:%.0f", advice.x, advice.z),
-                    String.format("距你 %d 格 · 走到后扔一次即可锁定", Math.round(advice.travel)),
-                    "[K] 结束当前定位"
-            }, new int[]{config.adviceColor(), COLOR_TEXT, COLOR_DIM});
+            drawPanel(graphics, mc, new String[]{title, detail, "[K] 结束当前定位"},
+                    new int[]{advice.kind == NextThrowAdvisor.Kind.MOVE ? config.adviceColor() : COLOR_WARN,
+                            COLOR_TEXT, COLOR_DIM});
         }
 
         drawWaypoint(graphics, mc, advice.x, advice.z, advice.travel,
-                config.adviceColor(), "投掷点", config);
+                advice.kind == NextThrowAdvisor.Kind.MOVE ? config.adviceColor() : COLOR_WARN,
+                advice.kind == NextThrowAdvisor.Kind.RETHROW ? "重投点" : "投掷点", config);
     }
 
     private static void drawWaypoint(GuiGraphics graphics, Minecraft mc,

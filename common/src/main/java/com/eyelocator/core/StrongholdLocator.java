@@ -4,8 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 末地要塞定位核心：记录若干条"方位射线"，用最小二乘法求所有射线的交点。
- * 当样本 >=3 条时会做一次稳健拟合：残差过大的离群射线会被剔除后再重新拟合。
+ * 末地要塞定位核心：记录若干条"方位射线"，用"射线对求交 + 投票"的方式找共同交点。
+ *
+ * <p>只接受<strong>正向交点</strong>：交点必须落在两条射线的前方。这样当两次投掷其实指向了
+ * 不同的要塞时，最小二乘不会再拿反向延长线的交点冒充答案，而是判定为矛盾并让玩家补投。
+ * 同一个交点被越多条方位支持越可信；若出现两组支持数相同、相距又很远的候选，
+ * 宁可判定为"无法确定"也不在两座要塞之间瞎猜。</p>
  */
 public final class StrongholdLocator {
 
@@ -27,6 +31,17 @@ public final class StrongholdLocator {
     /** 离群射线剔除阈值（水平垂距，单位格）。由配置注入。 */
     private double outlierResidual = 80.0;
 
+    /** 判定交点在射线"前方"的容差（格），留一点数值余量。 */
+    private static final double BEHIND_TOLERANCE = 1.0;
+
+    /**
+     * 交点到投掷点的最大可信距离（格）。
+     *
+     * <p>末影之眼一类道具的探测半径通常是 100 区块（约 1600 格），这里留足余量取 5000。
+     * 超过这个距离基本只可能是两条方位几乎平行、最小二乘把交点推到了极远处，结果不可信。</p>
+     */
+    private static final double MAX_TRUSTED_DISTANCE = 5000.0;
+
     private final List<Ray> rays = new ArrayList<>();
     private final List<Ray> usedRays = new ArrayList<>();
 
@@ -35,6 +50,10 @@ public final class StrongholdLocator {
     private double estZ;
     private double residual;
     private int excluded;
+    /** 有至少两条方位互相矛盾（交点在射线背后），说明它们大概指向了不同的目标。 */
+    private boolean inconsistent;
+    /** 有至少两条方位几乎平行，交点被推到极远处，结果不可用。 */
+    private boolean unstable;
 
     /** 设置离群剔除阈值，并立即重算（配置变更后调用）。 */
     public void setOutlierResidual(double outlierResidual) {
@@ -57,6 +76,8 @@ public final class StrongholdLocator {
         estZ = 0;
         residual = 0;
         excluded = 0;
+        inconsistent = false;
+        unstable = false;
     }
 
     public int sampleCount() {
@@ -71,6 +92,19 @@ public final class StrongholdLocator {
     /** 被判定为离群并剔除的样本数。 */
     public int excluded() {
         return excluded;
+    }
+
+    /**
+     * 已有方位但拟合不出可信交点，且原因是"交点在射线背后"——
+     * 通常意味着两次投掷指向了不同的要塞（或其中一次数据异常）。
+     */
+    public boolean inconsistent() {
+        return inconsistent;
+    }
+
+    /** 已有方位但交点不可信，原因是两条方位几乎平行（或重合），交点被推到极远处。 */
+    public boolean unstable() {
+        return unstable;
     }
 
     public Ray lastRay() {
@@ -100,6 +134,11 @@ public final class StrongholdLocator {
 
     public static double perpDistance(double x, double z, Ray ray) {
         return Math.abs(-ray.dz * (x - ray.x) + ray.dx * (z - ray.z));
+    }
+
+    /** 点 (x,z) 在射线方向上的投影距离：>0 表示在射线前方，<0 表示落在反向延长线上。 */
+    public static double forwardDistance(double x, double z, Ray ray) {
+        return (x - ray.x) * ray.dx + (z - ray.z) * ray.dz;
     }
 
     /** 方位射线的角度分散度（弧度，0..π/2）。 */
@@ -182,6 +221,8 @@ public final class StrongholdLocator {
     private void recompute() {
         usedRays.clear();
         excluded = 0;
+        inconsistent = false;
+        unstable = false;
 
         if (rays.size() < 2) {
             hasEstimate = false;
@@ -189,45 +230,134 @@ public final class StrongholdLocator {
         }
 
         double threshold = outlierResidual;
-        List<Ray> working = new ArrayList<>(rays);
 
-        // 稳健拟合：样本 >=3 时迭代剔除残差最大的离群射线
-        for (int iter = 0; iter < 4 && working.size() >= 3; iter++) {
-            Fit f = fit(working);
-            if (!f.ok) {
-                break;
-            }
-            double worst = -1;
-            int worstIndex = -1;
-            for (int i = 0; i < working.size(); i++) {
-                double d = perpDistance(f.x, f.z, working.get(i));
-                if (d > worst) {
-                    worst = d;
-                    worstIndex = i;
+        // 枚举射线对求交，按"有多少条射线同意这个交点"投票。
+        // 只接受正向交点：交点必须在两条射线的前方，反向延长线上的解直接作废。
+        int bestCount = -1;
+        double bestX = 0;
+        double bestZ = 0;
+        List<double[]> bestPoints = new ArrayList<>();
+
+        boolean sawBehind = false;
+
+        double[] p = new double[2];
+        for (int i = 0; i < rays.size(); i++) {
+            for (int j = i + 1; j < rays.size(); j++) {
+                Ray a = rays.get(i);
+                Ray b = rays.get(j);
+                if (!intersection(a, b, p)) {
+                    continue;
+                }
+                double ta = forwardDistance(p[0], p[1], a);
+                double tb = forwardDistance(p[0], p[1], b);
+                if (ta < -BEHIND_TOLERANCE || tb < -BEHIND_TOLERANCE) {
+                    sawBehind = true;
+                    continue;
+                }
+                if (ta > MAX_TRUSTED_DISTANCE || tb > MAX_TRUSTED_DISTANCE) {
+                    continue;
+                }
+
+                int count = 0;
+                for (Ray r : rays) {
+                    if (forwardDistance(p[0], p[1], r) >= -BEHIND_TOLERANCE
+                            && perpDistance(p[0], p[1], r) <= threshold) {
+                        count++;
+                    }
+                }
+
+                if (count > bestCount) {
+                    bestCount = count;
+                    bestX = p[0];
+                    bestZ = p[1];
+                    bestPoints.clear();
+                    bestPoints.add(new double[]{p[0], p[1]});
+                } else if (count == bestCount) {
+                    bestPoints.add(new double[]{p[0], p[1]});
                 }
             }
-            if (worst > threshold && working.size() - 1 >= 2) {
-                working.remove(worstIndex);
-                excluded++;
-            } else {
-                break;
+        }
+
+        if (bestCount < 2) {
+            // 完全没有可用的正向交点。用"有没有夹角够大的射线对"区分两种原因：
+            // 夹角大却交在背后 → 大概率指向不同要塞；夹角本来就小 → 两条线太平行。
+            double widestAngle = 0;
+            for (int i = 0; i < rays.size(); i++) {
+                for (int j = i + 1; j < rays.size(); j++) {
+                    widestAngle = Math.max(widestAngle, acuteAngle(rays.get(i), rays.get(j)));
+                }
+            }
+            hasEstimate = false;
+            inconsistent = sawBehind && widestAngle >= Math.toRadians(5.0);
+            unstable = !inconsistent;
+            return;
+        }
+
+        // 票数相同、却解出相隔很远的两组点：两个目标势均力敌，不猜
+        for (double[] other : bestPoints) {
+            if (Math.hypot(other[0] - bestX, other[1] - bestZ) > threshold * 4.0) {
+                hasEstimate = false;
+                inconsistent = true;
+                return;
             }
         }
 
-        Fit finalFit = fit(working);
-        if (!finalFit.ok) {
-            hasEstimate = false;
-            return;
+        // 用所有同意该交点的射线做最小二乘精修
+        List<Ray> inliers = new ArrayList<>();
+        for (Ray r : rays) {
+            if (forwardDistance(bestX, bestZ, r) >= -BEHIND_TOLERANCE
+                    && perpDistance(bestX, bestZ, r) <= threshold) {
+                inliers.add(r);
+            }
         }
+
+        double fx = bestX;
+        double fz = bestZ;
+        Fit refined = fit(inliers);
+        if (refined != null && refined.ok) {
+            boolean stillForward = true;
+            for (Ray r : inliers) {
+                if (forwardDistance(refined.x, refined.z, r) < -BEHIND_TOLERANCE) {
+                    stillForward = false;
+                    break;
+                }
+            }
+            if (stillForward) {
+                fx = refined.x;
+                fz = refined.z;
+            }
+        }
+
         double sumSq = 0;
-        for (Ray r : working) {
-            double d = perpDistance(finalFit.x, finalFit.z, r);
+        for (Ray r : inliers) {
+            double d = perpDistance(fx, fz, r);
             sumSq += d * d;
+            usedRays.add(r);
         }
-        usedRays.addAll(working);
-        estX = finalFit.x;
-        estZ = finalFit.z;
-        residual = Math.sqrt(sumSq / working.size());
+        excluded = rays.size() - inliers.size();
+        estX = fx;
+        estZ = fz;
+        residual = Math.sqrt(sumSq / Math.max(1, inliers.size()));
         hasEstimate = true;
+    }
+
+    /** 两条射线的交点（无限延长线）。平行时返回 false。 */
+    private static boolean intersection(Ray a, Ray b, double[] out) {
+        double det = a.dx * b.dz - a.dz * b.dx;
+        if (Math.abs(det) < 1e-4) {
+            return false;
+        }
+        double ex = b.x - a.x;
+        double ez = b.z - a.z;
+        double t = (ex * b.dz - ez * b.dx) / det;
+        out[0] = a.x + t * a.dx;
+        out[1] = a.z + t * a.dz;
+        return true;
+    }
+
+    /** 两条射线方向的锐夹角（0..π/2）。 */
+    private static double acuteAngle(Ray a, Ray b) {
+        double dot = Math.abs(a.dx * b.dx + a.dz * b.dz);
+        return Math.acos(Math.min(1.0, dot));
     }
 }
