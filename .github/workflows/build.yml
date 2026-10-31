@@ -12,7 +12,36 @@ permissions:
 
 jobs:
   build:
+    name: MC ${{ matrix.mc }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mc: '1.21.1'
+            yarn: '1.21.1+build.3'
+            api: '0.116.17+1.21.1'
+          - mc: '1.21.2'
+            yarn: '1.21.2+build.1'
+            api: '0.106.1+1.21.2'
+          - mc: '1.21.3'
+            yarn: '1.21.3+build.2'
+            api: '0.114.1+1.21.3'
+          - mc: '1.21.4'
+            yarn: '1.21.4+build.8'
+            api: '0.119.4+1.21.4'
+          - mc: '1.21.5'
+            yarn: '1.21.5+build.1'
+            api: '0.128.2+1.21.5'
+          - mc: '1.21.6'
+            yarn: '1.21.6+build.1'
+            api: '0.128.2+1.21.6'
+          - mc: '1.21.7'
+            yarn: '1.21.7+build.8'
+            api: '0.129.0+1.21.7'
+          - mc: '1.21.8'
+            yarn: '1.21.8+build.1'
+            api: '0.136.1+1.21.8'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,21 +54,45 @@ jobs:
           cache: gradle
 
       - name: Build
-        run: ./gradlew build --no-daemon
+        run: >
+          ./gradlew build --no-daemon
+          -Pminecraft_version=${{ matrix.mc }}
+          -Pyarn_mappings=${{ matrix.yarn }}
+          -Pfabric_api_version=${{ matrix.api }}
 
-      - name: Upload jar
+      - name: Collect jar
+        run: |
+          VERSION=$(grep -E '^mod_version=' gradle.properties | cut -d= -f2)
+          mkdir -p dist
+          JAR=$(ls build/libs/*.jar | grep -v -- '-sources.jar' | head -n 1)
+          cp "$JAR" "dist/eyelocator-${VERSION}+mc${{ matrix.mc }}.jar"
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: eyelocator
-          path: build/libs/*.jar
+          name: jar-${{ matrix.mc }}
+          path: dist/*.jar
+
+  release:
+    name: Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all jars
+        uses: actions/download-artifact@v4
+        with:
+          pattern: jar-*
+          merge-multiple: true
+          path: dist
 
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          JAR=$(ls build/libs/*.jar | grep -v -- '-sources.jar' | head -n 1)
-          echo "Publishing $JAR for ${GITHUB_REF_NAME}"
-          gh release create "${GITHUB_REF_NAME}" "$JAR" \
-            --title "${GITHUB_REF_NAME}" \
-            --generate-notes
+          ls -l dist
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" dist/*.jar --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" dist/*.jar --title "${GITHUB_REF_NAME}" --generate-notes
+          fi

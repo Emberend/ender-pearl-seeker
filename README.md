@@ -5,7 +5,7 @@
 
 用**末影之眼**自动三角定位末地要塞的 Fabric 客户端 Mod。不用任何指令，扔几次末影之眼就能算出要塞坐标，并在屏幕上给出距离、方向指引线和路标。
 
-- Minecraft **1.21.1** / Fabric
+- Minecraft **1.21.1 – 1.21.8** / Fabric（1.21.9+ 因渲染/按键 API 改动暂未支持）
 - 纯**客户端** Mod（单人、联机都能用，不需要装到服务端）
 - 依赖 [Fabric API](https://modrinth.com/mod/fabric-api)
 
@@ -100,11 +100,23 @@ GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew deployMod
 
 开发运行（需要图形环境）：`./gradlew runClient`。
 
-### 发布版本
-先同步改 `gradle.properties` 里的 `mod_version`，然后打 tag 推送即可，GitHub Actions 会自动构建并创建 Release、上传 jar：
+### 构建全部支持版本
+为 1.21.1–1.21.8 各生成一个 jar（输出到 `build/versions/`）：
 
 ```bash
-git tag v0.6.3 && git push origin v0.6.3
+./scripts/build-all.sh
+```
+
+单个版本也可以手动指定：
+```bash
+./gradlew build -Pminecraft_version=1.21.8 -Pyarn_mappings=1.21.8+build.1 -Pfabric_api_version=0.136.1+1.21.8
+```
+
+### 发布版本
+先同步改 `gradle.properties` 里的 `mod_version`，然后打 tag 推送。GitHub Actions 会构建所有支持版本，并把各版本 jar 一起附到 Release：
+
+```bash
+git tag v0.7.0 && git push origin v0.7.0
 ```
 
 ## 目录结构
@@ -120,6 +132,8 @@ src/main/java/com/eyelocator/client/
 ├── StrongholdRegistry.java  # 多要塞归档（持久化）
 ├── HudRenderer.java         # 2D HUD：信息面板 + 可配置路标 + 归档标记
 └── NextThrowAdvisor.java    # 首次投掷后计算最佳下一投掷点
+
+scripts/build-all.sh         # 为 1.21.1–1.21.8 批量构建
 ```
 
 ## 已知限制

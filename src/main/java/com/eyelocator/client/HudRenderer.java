@@ -35,7 +35,8 @@ public final class HudRenderer implements HudRenderCallback {
             return;
         }
 
-        Vec3d playerPos = player.getLerpedPos(tickCounter.getTickDelta(false));
+        // 使用实体当前位置；路标投影用相机插值，移动时依然平滑
+        Vec3d playerPos = player.getPos();
         StrongholdLocator locator = EyeLocatorClient.LOCATOR;
 
         if (locator.hasEstimate()) {
