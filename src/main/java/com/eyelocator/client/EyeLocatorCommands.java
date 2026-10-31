@@ -35,10 +35,14 @@ public final class EyeLocatorCommands {
                         }))
                 .then(ClientCommandManager.literal("reset")
                         .executes(ctx -> {
-                            EyeLocatorClient.LOCATOR.reset();
-                            EyeTracker.clear();
-                            StrongholdRegistry.clear();
-                            feedback(ctx.getSource(), "已清除当前定位与归档");
+                            EyeLocatorClient.endCurrent();
+                            feedback(ctx.getSource(), "已结束当前定位（归档保留）");
+                            return 1;
+                        }))
+                .then(ClientCommandManager.literal("clearall")
+                        .executes(ctx -> {
+                            EyeLocatorClient.clearEverything();
+                            feedback(ctx.getSource(), "已清空当前定位与全部归档");
                             return 1;
                         }))
                 .then(ClientCommandManager.literal("gui")
@@ -125,7 +129,7 @@ public final class EyeLocatorCommands {
         feedback(source, String.format("样本 %d · 已归档 %d · %s",
                 locator.sampleCount(), StrongholdRegistry.size(),
                 locator.hasEstimate() ? "已定位" : "未定位"));
-        feedback(source, "用法: /eyelocator reload|reset|gui|style|scale|baseline|color|archived");
+        feedback(source, "用法: /eyelocator reload|reset|clearall|gui|style|scale|baseline|color|archived");
     }
 
     private static void feedback(FabricClientCommandSource source, String message) {

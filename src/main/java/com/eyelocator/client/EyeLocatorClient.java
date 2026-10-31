@@ -78,14 +78,29 @@ public final class EyeLocatorClient implements ClientModInitializer {
         EyeTracker.tick(client.world);
 
         while (clearKey != null && clearKey.wasPressed()) {
-            LOCATOR.reset();
-            EyeTracker.clear();
-            StrongholdRegistry.clear();
+            endCurrent();
         }
 
         if (menuKey != null && menuKey.wasPressed() && client.currentScreen == null) {
             client.setScreen(new EyeLocatorScreen(null));
         }
+    }
+
+    /**
+     * 结束当前的定位并收起 HUD：先把当前结果归档保存，再清空当前射线。
+     * 不会删除任何已归档的要塞。
+     */
+    public static void endCurrent() {
+        archiveCurrent();
+        LOCATOR.reset();
+        EyeTracker.clear();
+    }
+
+    /** 彻底清空：当前定位 + 全部归档。 */
+    public static void clearEverything() {
+        LOCATOR.reset();
+        EyeTracker.clear();
+        StrongholdRegistry.clear();
     }
 
     /** 一条方位射线完成（眼睛飞出足够距离）时调用。 */

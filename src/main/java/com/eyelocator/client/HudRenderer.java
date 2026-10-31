@@ -68,7 +68,7 @@ public final class HudRenderer implements HudRenderCallback {
                     String.format("末地要塞 ≈  X:%.0f  Z:%.0f", locator.estX(), locator.estZ()),
                     String.format("距离 %d 格 · %s · 置信度 %d%%",
                             Math.round(distance), sampleInfo, Math.round(locator.confidence() * 100)),
-                    String.format("归档 %d 个要塞 · [K] 清除", StrongholdRegistry.size())
+                    String.format("归档 %d 个要塞 · [K] 结束当前定位", StrongholdRegistry.size())
             }, new int[]{config.strongholdColor(), COLOR_TEXT, COLOR_DIM});
         }
 
@@ -81,7 +81,7 @@ public final class HudRenderer implements HudRenderCallback {
         if (advice.alreadyOptimal) {
             if (config.showPanel) {
                 drawPanel(context, mc,
-                        new String[]{"当前站位已与首次方位错开足够远", "直接原地再扔一次即可锁定要塞", "[K] 清除记录"},
+                        new String[]{"当前站位已与首次方位错开足够远", "直接原地再扔一次即可锁定要塞", "[K] 结束当前定位"},
                         new int[]{config.adviceColor(), COLOR_TEXT, COLOR_DIM});
             }
             return;
@@ -91,7 +91,7 @@ public final class HudRenderer implements HudRenderCallback {
             drawPanel(context, mc, new String[]{
                     String.format("下一最佳投掷点 ≈  X:%.0f  Z:%.0f", advice.x, advice.z),
                     String.format("距你 %d 格 · 走到后扔一次即可锁定", Math.round(advice.travel)),
-                    "[K] 清除记录"
+                    "[K] 结束当前定位"
             }, new int[]{config.adviceColor(), COLOR_TEXT, COLOR_DIM});
         }
 
