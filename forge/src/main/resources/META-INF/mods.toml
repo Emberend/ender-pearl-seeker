@@ -15,7 +15,7 @@ description='''
 个人项目，大部分代码由 AI 辅助编写（vibe coding）。Forge 版从未实机启动验证过，
 渲染、按键、客户端命令都是照文档实现的，第一次使用可能需要调 bug。
 '''
-displayTest="IGNORE_CLIENT_VESION"
+displayTest="IGNORE_ALL_VERSION"
 
 [[dependencies.${mod_id}]]
     modId="forge"

@@ -67,18 +67,21 @@
 
 1. **内置兼容表**：原版末影之眼，以及下表这些已确认的模组道具，零配置直接可用：
 
-   | 实体 id | 道具 | 指向 |
+   | 实体 id | 道具 | 来源 |
    |---|---|---|
-   | `minecraft:eye_of_ender` | 末影之眼 | 末地要塞 |
-   | `goety:cryptic_eye` | 隐秘之眼 | Goety 的结构 |
-   | `goety:void_eye` | 虚空之眼 | Goety 的结构 |
-   | `goety:survey_eye` | 探知之眼 | Goety 的结构 |
-   | `goetyawaken:ominous_eye` | 不祥之眼 | 不祥城堡 |
-   | `goetyawaken:prison_eye` | 囚禁之眼 | 对应结构 |
-   | `goetyawaken:mirage_eye` | 幻影之眼 | 对应结构 |
-   | `goetyawaken:eye_of_overwatch_entity` | 守望之眼 | 对应结构 |
+   | `minecraft:eye_of_ender` | 末影之眼 | 原版 |
+   | `goety:cryptic_eye` | 墓穴之眼 | Goety 2.5.x |
+   | `goety:void_eye` | 虚空之眼 | Goety 2.5.x |
+   | `goetyawaken:ominous_eye` | 不祥之眼 | Goety: Awaken 1.3.x |
+   | `goetyawaken:prison_eye` | 监狱之眼 | Goety: Awaken 1.3.x |
+   | `goetyawaken:mirage_eye` | 迷乱之眼 | Goety: Awaken 1.3.x |
+   | `cataclysm:eye_of_dungeon` | 灾变地牢（8 种地牢之眼共用） | Cataclysm 3.x |
 
-   > Goety 系列目前只有 Forge 版，因此这些条目实际生效于 **Forge 版**；Fabric 版的内置表同样保留它们，装了对应的 Fabric 移植后可直接用。
+   这些 id 都是解包对应模组 jar、核对实体注册名 + `signalTo` 调用后确认的，不是猜的。已确认**不是**定位道具的（`goety:survey_eye` 隐形侦察眼、`goetyawaken:eye_of_overwatch_entity` 掉落物）被显式排除，避免被关键词误判。
+
+   > Goety 系列目前只有 Forge 版，因此这几条实际生效于 **Forge 版**；Fabric 版的内置表同样保留它们，装了对应的 Fabric 移植后可直接用。
+   >
+   > Cataclysm 的 8 种地牢之眼（机械/巨兽/深渊/沙漠/烈焰/风暴/诅咒/虚空）**共用同一个实体 id**，但指向不同的地牢。客户端无法分辨用的是哪一种，只能靠"新射线明显不指向当前估计时自动归档重来"来切换；连续混用不同地牢之眼时，需要多扔几次。
 
 2. **自动启发式**：实体 id 里含 `eye` / `seeker` / `locator` / `finder` / `stronghold` 之一时自动追踪（关键词可配置，也可整体关闭；只对非生物实体生效）。
 3. **白名单**：在 `config/eyelocator.json` 的 `trackedEntities` 里写实体 id，支持 `*` 通配（白名单命中时不限制实体是否生物，可兼容用 `FlyingMob` 实现的定位道具）：

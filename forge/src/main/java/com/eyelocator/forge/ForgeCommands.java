@@ -31,13 +31,13 @@ public final class ForgeCommands {
                         }))
                 .then(net.minecraft.commands.Commands.literal("reset")
                         .executes(ctx -> {
-                            EyeLocatorForge.endCurrent();
+                            ClientSetup.endCurrent();
                             feedback(ctx.getSource(), "已结束当前定位（归档保留）");
                             return 1;
                         }))
                 .then(net.minecraft.commands.Commands.literal("clearall")
                         .executes(ctx -> {
-                            EyeLocatorForge.clearEverything();
+                            ClientSetup.clearEverything();
                             feedback(ctx.getSource(), "已清空当前定位与全部归档");
                             return 1;
                         }))

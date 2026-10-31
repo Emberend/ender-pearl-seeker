@@ -29,6 +29,19 @@ minecraft {
                 }
             }
         }
+
+        // 仅用于本地冒烟测试：验证 mods.toml 能被解析、@Mod 类能被实例化。
+        // 纯客户端功能不会在服务端执行。
+        server {
+            workingDirectory project.file('run-server')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
     }
 }
 

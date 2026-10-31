@@ -38,6 +38,12 @@ public final class ForgeClassifier {
             return null;
         }
         String id = key.toString();
+
+        // 0. 已知不是定位道具的实体（例如隐形侦察眼、掉落物）直接跳过
+        if (BuiltInCompat.isIgnored(id)) {
+            return null;
+        }
+
         ForgeConfig config = ForgeConfig.get();
 
         // 1. 显式白名单

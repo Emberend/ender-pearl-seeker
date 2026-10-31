@@ -76,7 +76,7 @@ public final class ForgeTracker {
             double dist = Math.hypot(dx, dz);
 
             if (dist >= MIN_MOVE) {
-                EyeLocatorForge.onRayCompleted(track.channel,
+                ClientSetup.onRayCompleted(track.channel,
                         new StrongholdLocator.Ray(track.x, track.z, dx / dist, dz / dist));
                 it.remove();
             } else if (++track.age > MAX_AGE_TICKS) {
