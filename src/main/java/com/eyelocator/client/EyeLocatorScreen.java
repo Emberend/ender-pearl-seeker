@@ -8,18 +8,18 @@ import java.util.function.Supplier;
 
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 
-/** Eye Locator 管理界面：设置 + 已归档要塞管理。 */
+/**
+ * Eye Locator 管理界面。刻意只保留少量直观选项；
+ * 高级参数（粗细、基线、阈值等）请编辑 config/eyelocator.json。
+ */
 public final class EyeLocatorScreen extends Screen {
 
     private static final String[] STYLES = {"diamond", "circle", "cross"};
     private static final double[] SCALES = {0.6, 0.8, 1.0, 1.2, 1.5, 2.0};
-    private static final double[] THICKNESS = {1.5, 2.0, 2.5, 3.0, 4.0, 5.0};
-    private static final double[] BASELINES = {150, 250, 400, 600, 800, 1000};
-    private static final double[] OUTLIERS = {40, 60, 80, 120, 200};
-    private static final double[] CHANGES = {256, 384, 512, 768, 1024};
     private static final int ROWS_PER_PAGE = 7;
     private static final int ROW_HEIGHT = 18;
 
@@ -27,7 +27,6 @@ public final class EyeLocatorScreen extends Screen {
     private int tab = 0; // 0=设置 1=归档
     private int page = 0;
 
-    private final List<StrongholdRegistry.Entry> displayed = new ArrayList<>();
     private final List<int[]> deleteBoxes = new ArrayList<>();
 
     public EyeLocatorScreen(Screen parent) {
@@ -37,10 +36,6 @@ public final class EyeLocatorScreen extends Screen {
 
     @Override
     protected void init() {
-        int top = 56;
-        int h = 20;
-        int gap = 24;
-
         addDrawableChild(ButtonWidget.builder(Text.literal("设置"), b -> switchTab(0))
                 .dimensions(this.width / 2 - 105, 30, 100, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("归档"), b -> switchTab(1))
@@ -50,7 +45,7 @@ public final class EyeLocatorScreen extends Screen {
                 .dimensions(this.width / 2 - 50, this.height - 28, 100, 20).build());
 
         if (tab == 0) {
-            initSettings(top, h, gap);
+            initSettings();
         } else {
             initArchive();
         }
@@ -65,32 +60,45 @@ public final class EyeLocatorScreen extends Screen {
         this.clearAndInit();
     }
 
-    private void initSettings(int top, int h, int gap) {
+    private void initSettings() {
         EyeLocatorConfig cfg = EyeLocatorConfig.get();
-        int col1 = 20;
-        int col2 = 20 + 170;
-        int w = 160;
+        int w = 220;
+        int x = (this.width - w) / 2;
+        int top = 62;
+        int h = 20;
+        int gap = 24;
 
-        addDrawableChild(cycle("样式", () -> styleName(cfg.markerStyle), () -> cfg.markerStyle = nextStyle(cfg.markerStyle), col1, top, w, h));
-        addDrawableChild(cycle("缩放", () -> String.format("%.1f", cfg.markerScale), () -> cfg.markerScale = nextDouble(SCALES, cfg.markerScale), col1, top + gap, w, h));
-        addDrawableChild(cycle("粗细", () -> String.format("%.1f", cfg.markerThickness), () -> cfg.markerThickness = nextDouble(THICKNESS, cfg.markerThickness), col1, top + gap * 2, w, h));
-        addDrawableChild(cycle("投掷基线", () -> String.format("%.0f 格", cfg.baseline), () -> cfg.baseline = nextDouble(BASELINES, cfg.baseline), col1, top + gap * 3, w, h));
-        addDrawableChild(cycle("异常阈值", () -> String.format("%.0f 格", cfg.outlierResidual), () -> cfg.outlierResidual = nextDouble(OUTLIERS, cfg.outlierResidual), col1, top + gap * 4, w, h));
-        addDrawableChild(cycle("换要塞判定", () -> String.format("%.0f 格", cfg.changeDistance), () -> cfg.changeDistance = nextDouble(CHANGES, cfg.changeDistance), col1, top + gap * 5, w, h));
+        ButtonWidget style = cycle("路标样式", () -> styleName(cfg.markerStyle),
+                () -> cfg.markerStyle = nextStyle(cfg.markerStyle), x, top, w, h);
+        style.setTooltip(Tooltip.of(Text.literal("路标的形状：菱形 / 圆环 / 十字")));
+        addDrawableChild(style);
 
-        addDrawableChild(toggle("显示距离", () -> cfg.showDistance, v -> cfg.showDistance = v, col2, top, w, h));
-        addDrawableChild(toggle("显示标签", () -> cfg.showLabels, v -> cfg.showLabels = v, col2, top + gap, w, h));
-        addDrawableChild(toggle("显示信息面板", () -> cfg.showPanel, v -> cfg.showPanel = v, col2, top + gap * 2, w, h));
-        addDrawableChild(toggle("显示已归档标记", () -> cfg.showArchived, v -> cfg.showArchived = v, col2, top + gap * 3, w, h));
+        ButtonWidget scale = cycle("路标大小", () -> String.format("%.1f", cfg.markerScale),
+                () -> cfg.markerScale = nextDouble(SCALES, cfg.markerScale), x, top + gap, w, h);
+        scale.setTooltip(Tooltip.of(Text.literal("路标显示大小，0.6 到 2.0")));
+        addDrawableChild(scale);
+
+        addDrawableChild(toggle("显示距离", () -> cfg.showDistance, v -> cfg.showDistance = v,
+                x, top + gap * 2, w, h, "在路标下方显示到目标的距离（米）"));
+
+        addDrawableChild(toggle("显示旧要塞标记", () -> cfg.showArchived, v -> cfg.showArchived = v,
+                x, top + gap * 3, w, h, "把以前找到的其它要塞显示为暗色小标记"));
+
         addDrawableChild(toggle("找新要塞时隐藏旧标记", () -> cfg.hideArchivedWhileSearching,
-                v -> cfg.hideArchivedWhileSearching = v, col2, top + gap * 4, w, h));
-        addDrawableChild(toggle("自动检测要塞变更", () -> cfg.detectStrongholdChange,
-                v -> cfg.detectStrongholdChange = v, col2, top + gap * 5, w, h));
+                v -> cfg.hideArchivedWhileSearching = v, x, top + gap * 4, w, h,
+                "还没算出当前要塞时，自动隐藏旧要塞标记，避免干扰"));
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("清除当前定位"), b -> {
-            EyeLocatorClient.LOCATOR.reset();
-            EyeTracker.clear();
-        }).dimensions(col1, top + gap * 6, w, h).build());
+        ButtonWidget reset = ButtonWidget.builder(Text.literal("恢复默认设置"), b -> {
+            cfg.markerStyle = "diamond";
+            cfg.markerScale = 1.0;
+            cfg.showDistance = true;
+            cfg.showArchived = true;
+            cfg.hideArchivedWhileSearching = true;
+            EyeLocatorConfig.save();
+            this.clearAndInit();
+        }).dimensions(x, top + gap * 5, w, h).build();
+        reset.setTooltip(Tooltip.of(Text.literal("只把上面这些选项恢复默认")));
+        addDrawableChild(reset);
     }
 
     private void initArchive() {
@@ -99,32 +107,32 @@ public final class EyeLocatorScreen extends Screen {
                 page--;
             }
         }).dimensions(this.width / 2 - 155, this.height - 52, 70, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("下一页"), b -> {
-            page++;
-        }).dimensions(this.width / 2 - 80, this.height - 52, 70, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("下一页"), b -> page++)
+                .dimensions(this.width / 2 - 80, this.height - 52, 70, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("清空归档"), b -> {
             StrongholdRegistry.clear();
             page = 0;
         }).dimensions(this.width / 2 + 5, this.height - 52, 150, 20).build());
     }
 
-    private ButtonWidget cycle(String name, Supplier<String> value, Runnable action, int x, int y, int w, int h) {
-        ButtonWidget[] ref = new ButtonWidget[1];
-        ref[0] = ButtonWidget.builder(Text.literal(name + ": " + value.get()), b -> {
+    private ButtonWidget cycle(String name, Supplier<String> value, Runnable action,
+                               int x, int y, int w, int h) {
+        return ButtonWidget.builder(Text.literal(name + ": " + value.get()), b -> {
             action.run();
             EyeLocatorConfig.save();
             b.setMessage(Text.literal(name + ": " + value.get()));
         }).dimensions(x, y, w, h).build();
-        return ref[0];
     }
 
     private ButtonWidget toggle(String name, BooleanSupplier getter, Consumer<Boolean> setter,
-                                int x, int y, int w, int h) {
-        return ButtonWidget.builder(stateText(name, getter.getAsBoolean()), b -> {
+                                int x, int y, int w, int h, String tooltip) {
+        ButtonWidget button = ButtonWidget.builder(stateText(name, getter.getAsBoolean()), b -> {
             setter.accept(!getter.getAsBoolean());
             EyeLocatorConfig.save();
             b.setMessage(stateText(name, getter.getAsBoolean()));
         }).dimensions(x, y, w, h).build();
+        button.setTooltip(Tooltip.of(Text.literal(tooltip)));
+        return button;
     }
 
     private static Text stateText(String name, boolean on) {
@@ -137,7 +145,9 @@ public final class EyeLocatorScreen extends Screen {
         context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 12, 0xFFFFFFFF);
 
         if (tab == 0) {
-            context.drawTextWithShadow(this.textRenderer, Text.literal("设置"), 20, 42, 0xFFAAAAAA);
+            context.drawCenteredTextWithShadow(this.textRenderer,
+                    Text.literal("更多高级选项请编辑 config/eyelocator.json"),
+                    this.width / 2, this.height - 44, 0xFF777777);
         } else {
             renderArchive(context, mouseX, mouseY);
         }
@@ -147,7 +157,6 @@ public final class EyeLocatorScreen extends Screen {
         String dimension = this.client == null || this.client.world == null
                 ? "" : this.client.world.getRegistryKey().getValue().toString();
 
-        displayed.clear();
         int left = 20;
         int right = this.width - 20;
         int rowY = 72;
@@ -156,26 +165,19 @@ public final class EyeLocatorScreen extends Screen {
                 Text.literal("已归档要塞（当前维度： " + dimName(dimension) + "）"), left, 44, 0xFFAAAAAA);
 
         List<StrongholdRegistry.Entry> all = StrongholdRegistry.entries();
+        deleteBoxes.clear();
         if (all.isEmpty()) {
             context.drawTextWithShadow(this.textRenderer, Text.literal("暂无归档"), left, rowY, 0xFF888888);
-            deleteBoxes.clear();
             return;
         }
 
         int pages = Math.max(1, (all.size() + ROWS_PER_PAGE - 1) / ROWS_PER_PAGE);
-        if (page >= pages) {
-            page = pages - 1;
-        }
-        if (page < 0) {
-            page = 0;
-        }
+        page = Math.max(0, Math.min(page, pages - 1));
 
-        deleteBoxes.clear();
         int start = page * ROWS_PER_PAGE;
         int end = Math.min(all.size(), start + ROWS_PER_PAGE);
         for (int i = start; i < end; i++) {
             StrongholdRegistry.Entry entry = all.get(i);
-            displayed.add(entry);
             int y = rowY + (i - start) * ROW_HEIGHT;
 
             String text = String.format("X: %.0f   Z: %.0f   %s   置信 %d%%",
@@ -202,8 +204,8 @@ public final class EyeLocatorScreen extends Screen {
             for (int[] box : deleteBoxes) {
                 if (mouseX >= box[0] && mouseX <= box[0] + box[2]
                         && mouseY >= box[1] && mouseY <= box[1] + box[3]) {
-                    int index = box[4];
                     List<StrongholdRegistry.Entry> all = StrongholdRegistry.entries();
+                    int index = box[4];
                     if (index >= 0 && index < all.size()) {
                         StrongholdRegistry.remove(all.get(index));
                     }
