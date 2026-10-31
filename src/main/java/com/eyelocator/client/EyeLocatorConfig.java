@@ -48,6 +48,8 @@ public final class EyeLocatorConfig {
 
     /** 是否显示已归档的其它要塞。 */
     public boolean showArchived = true;
+    /** 正在寻找新要塞（尚未形成当前交点）时，隐藏已归档要塞的标记。 */
+    public boolean hideArchivedWhileSearching = true;
 
     private EyeLocatorConfig() {
     }

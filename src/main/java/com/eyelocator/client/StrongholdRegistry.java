@@ -1,11 +1,19 @@
 package com.eyelocator.client;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+import net.fabricmc.loader.api.FabricLoader;
+
 /**
- * 已定位的要塞归档。多个估计点相距较近时会合并（加权平均），相距较远则视为不同要塞。
- * 用于"检测到最近要塞变了"后保留上一个结果，以及在一个存档里管理多个要塞。
+ * 已定位的要塞归档，持久化到 {@code config/eyelocator_strongholds.json}。
+ * 同维度内相距较近的估计会合并，相距较远视为不同要塞。
  */
 public final class StrongholdRegistry {
 
@@ -14,7 +22,10 @@ public final class StrongholdRegistry {
         public double z;
         public double confidence;
         public int hits;
-        public final String dimension;
+        public String dimension;
+
+        Entry() {
+        }
 
         Entry(double x, double z, double confidence, String dimension) {
             this.x = x;
@@ -25,14 +36,60 @@ public final class StrongholdRegistry {
         }
     }
 
+    private static final class Data {
+        List<Entry> entries = new ArrayList<>();
+    }
+
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Path PATH =
+            FabricLoader.getInstance().getConfigDir().resolve("eyelocator_strongholds.json");
     private static final double MERGE_DISTANCE = 128.0;
     private static final List<Entry> ENTRIES = new ArrayList<>();
 
     private StrongholdRegistry() {
     }
 
+    public static void load() {
+        try {
+            if (!Files.exists(PATH)) {
+                return;
+            }
+            Data data = GSON.fromJson(Files.readString(PATH, StandardCharsets.UTF_8), Data.class);
+            ENTRIES.clear();
+            if (data != null && data.entries != null) {
+                for (Entry e : data.entries) {
+                    if (e != null && e.dimension != null) {
+                        ENTRIES.add(e);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            EyeLocatorClient.LOGGER.warn("读取要塞归档失败: {}", e.getMessage());
+        }
+    }
+
+    public static void save() {
+        try {
+            Files.createDirectories(PATH.getParent());
+            Data data = new Data();
+            data.entries = ENTRIES;
+            Files.writeString(PATH, GSON.toJson(data), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            EyeLocatorClient.LOGGER.warn("保存要塞归档失败: {}", e.getMessage());
+        }
+    }
+
     public static void clear() {
         ENTRIES.clear();
+        save();
+    }
+
+    public static boolean remove(Entry entry) {
+        boolean removed = ENTRIES.remove(entry);
+        if (removed) {
+            save();
+        }
+        return removed;
     }
 
     public static int size() {
@@ -67,5 +124,6 @@ public final class StrongholdRegistry {
         } else {
             ENTRIES.add(new Entry(x, z, confidence, dimension));
         }
+        save();
     }
 }

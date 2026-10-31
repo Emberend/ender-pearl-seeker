@@ -36,8 +36,16 @@ public final class EyeLocatorCommands {
                 .then(ClientCommandManager.literal("reset")
                         .executes(ctx -> {
                             EyeLocatorClient.LOCATOR.reset();
+                            EyeTracker.clear();
                             StrongholdRegistry.clear();
                             feedback(ctx.getSource(), "已清除当前定位与归档");
+                            return 1;
+                        }))
+                .then(ClientCommandManager.literal("gui")
+                        .executes(ctx -> {
+                            net.minecraft.client.MinecraftClient client =
+                                    net.minecraft.client.MinecraftClient.getInstance();
+                            client.execute(() -> client.setScreen(new EyeLocatorScreen(client.currentScreen)));
                             return 1;
                         }))
                 .then(ClientCommandManager.literal("style")
@@ -117,7 +125,7 @@ public final class EyeLocatorCommands {
         feedback(source, String.format("样本 %d · 已归档 %d · %s",
                 locator.sampleCount(), StrongholdRegistry.size(),
                 locator.hasEstimate() ? "已定位" : "未定位"));
-        feedback(source, "用法: /eyelocator reload|reset|style|scale|baseline|color|archived");
+        feedback(source, "用法: /eyelocator reload|reset|gui|style|scale|baseline|color|archived");
     }
 
     private static void feedback(FabricClientCommandSource source, String message) {

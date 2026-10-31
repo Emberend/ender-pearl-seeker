@@ -27,16 +27,24 @@ public final class EyeLocatorClient implements ClientModInitializer {
     public static final StrongholdLocator LOCATOR = new StrongholdLocator();
 
     private static KeyBinding clearKey;
+    private static KeyBinding menuKey;
     private static String currentDimension;
 
     @Override
     public void onInitializeClient() {
         EyeLocatorConfig.load();
+        StrongholdRegistry.load();
 
         clearKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.eyelocator.clear",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_K,
+                "category.eyelocator"));
+
+        menuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.eyelocator.menu",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_I,
                 "category.eyelocator"));
 
         ClientEntityEvents.ENTITY_LOAD.register(EyeLocatorClient::onEntityLoad);
@@ -73,6 +81,10 @@ public final class EyeLocatorClient implements ClientModInitializer {
             LOCATOR.reset();
             EyeTracker.clear();
             StrongholdRegistry.clear();
+        }
+
+        if (menuKey != null && menuKey.wasPressed() && client.currentScreen == null) {
+            client.setScreen(new EyeLocatorScreen(null));
         }
     }
 

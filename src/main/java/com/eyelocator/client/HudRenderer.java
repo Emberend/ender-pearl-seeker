@@ -50,7 +50,8 @@ public final class HudRenderer implements HudRenderCallback {
             }
         }
 
-        if (config.showArchived) {
+        boolean searchingNew = config.hideArchivedWhileSearching && !locator.hasEstimate();
+        if (config.showArchived && !searchingNew) {
             drawArchivedMarkers(context, mc, config);
         }
     }

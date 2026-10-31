@@ -13,7 +13,7 @@
 - **HUD 信息**：左上角显示估计坐标、水平距离、有效样本数（含剔除）、置信度和已归档数量。
 - **方向路标**：把目标位置投影到屏幕上，用手绘的极简路标标记（抗锯齿、加粗描边，支持菱形/圆环/十字三种样式）；跟随视角实时移动，超出视野贴到屏幕边缘，并显示距离。
 - **异常样本过滤**：样本 ≥3 条时自动剔除残差过大的坏射线，避免一次手滑污染结果。
-- **多要塞管理**：自动归档已找到的要塞；当你移动到新区域、眼睛开始指向另一个要塞时自动识别并保留旧记录。
+- **多要塞管理**：自动归档已找到的要塞并持久化；当你移动到新区域、眼睛开始指向另一个要塞时自动识别并保留旧记录。按 `I` 打开管理界面可查看/删除归档、调整所有设置。
 - **自管理**：切换维度自动归档并重置；按 `K` 清除当前定位与归档。
 
 ## 使用方法
@@ -24,7 +24,9 @@
 4. 走到青色标记处（大约横向错开 400 格），再扔一次。两条不平行的方向线一相交，HUD 立刻显示要塞坐标。
 5. 想要更准可以再换位置扔第 3、4 次，样本越多、残差越小，置信度越高；离群样本会被自动剔除。
 6. 跟着绿色路标走过去即可；到达后眼睛会明显向下掉/原地打转。
-7. 换要塞/找完了按 `K` 清空。
+7. 换要塞/找完了按 `K` 清空；按 `I` 打开管理界面（设置 + 归档）。
+
+> 找新要塞时，已归档的旧要塞标记默认会自动隐藏（可在 GUI 或配置里关闭），避免干扰。
 
 > 关键：第二次投掷要**横向错开**首次方位线，方向线越不平行，交点越准。推荐点已经替你算好了，跟着青色标记走即可；站原地重复扔同方向不会提升精度（会被自动去重）。
 
@@ -39,6 +41,15 @@
 
 末影之眼只指向**最近**的要塞；要塞位置本身由游戏确定性生成，Mod 不修改任何游戏逻辑。
 
+## 管理界面
+
+按 `I`（可在“按键设置”里改）或输入 `/eyelocator gui` 打开。两个标签页：
+
+- **设置**：路标样式 / 缩放 / 粗细 / 投掷基线 / 异常阈值 / 换要塞判定，以及各显示开关（含“找新要塞时隐藏旧标记”）。
+- **归档**：列出已保存的要塞（坐标、维度、置信度），可逐个删除或一键清空。
+
+归档保存在 `config/eyelocator_strongholds.json`，重开游戏仍在。
+
 ## 配置
 
 配置文件：`config/eyelocator.json`（首次启动自动生成）。可在游戏内用命令修改，改完自动保存：
@@ -48,6 +59,7 @@
 | `/eyelocator` | 查看当前配置与状态 |
 | `/eyelocator reload` | 重新读取配置文件 |
 | `/eyelocator reset` | 清除当前定位与归档 |
+| `/eyelocator gui` | 打开管理界面 |
 | `/eyelocator style <diamond\|circle\|cross>` | 路标样式 |
 | `/eyelocator scale <0.4~3.0>` | 路标缩放 |
 | `/eyelocator baseline <50~2000>` | 最佳投掷点的横向基准距离 |
@@ -55,7 +67,7 @@
 | `/eyelocator color advice <#RRGGBB>` | 投掷点路标颜色 |
 | `/eyelocator archived <true\|false>` | 是否显示已归档要塞标记 |
 
-配置文件主要字段：`markerStyle`、`markerScale`、`markerThickness`、`colorStronghold`、`colorAdvice`、`colorArchived`、`showDistance`、`showLabels`、`showPanel`、`baseline`、`outlierResidual`、`detectStrongholdChange`、`changeDistance`、`showArchived`。
+配置文件主要字段：`markerStyle`、`markerScale`、`markerThickness`、`colorStronghold`、`colorAdvice`、`colorArchived`、`showDistance`、`showLabels`、`showPanel`、`baseline`、`outlierResidual`、`detectStrongholdChange`、`changeDistance`、`showArchived`、`hideArchivedWhileSearching`。
 
 ## 构建
 
@@ -84,10 +96,11 @@ GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew deployMod
 src/main/java/com/eyelocator/client/
 ├── EyeLocatorClient.java    # 客户端入口：事件、命令、归档/变更检测
 ├── EyeLocatorCommands.java  # /eyelocator 客户端命令
+├── EyeLocatorScreen.java    # 管理界面（设置 / 归档）
 ├── EyeLocatorConfig.java    # JSON 配置读写
 ├── EyeTracker.java          # 追踪末影之眼实体，产出方位射线
 ├── StrongholdLocator.java   # 最小二乘求交 + 离群剔除，坐标/残差/置信度
-├── StrongholdRegistry.java  # 多要塞归档
+├── StrongholdRegistry.java  # 多要塞归档（持久化）
 ├── HudRenderer.java         # 2D HUD：信息面板 + 可配置路标 + 归档标记
 └── NextThrowAdvisor.java    # 首次投掷后计算最佳下一投掷点
 ```
@@ -96,7 +109,7 @@ src/main/java/com/eyelocator/client/
 
 - 只按水平面求交，路标高度锚定相机高度（不采样目标地形）。
 - 路标是屏幕空间绘制，会穿透地形显示（作为路标通常更有用）。
-- 定位记录与归档仅在当前会话有效（未持久化到磁盘）；配置本身会保存。
+- 当前定位（未完成的射线）仅存在于会话中；已归档的要塞会持久化。
 
 ## 许可
 
