@@ -76,7 +76,8 @@ public final class WorldGuide {
     private static void line(Matrix4f mat, VertexConsumer vc,
                              double x1, double y1, double z1,
                              double x2, double y2, double z2) {
-        vc.vertex(mat, (float) x1, (float) y1, (float) z1).color(R, G, B, A);
-        vc.vertex(mat, (float) x2, (float) y2, (float) z2).color(R, G, B, A);
+        // RenderLayer.getLines() 的顶点格式为 position + color + normal，normal 必须提供
+        vc.vertex(mat, (float) x1, (float) y1, (float) z1).color(R, G, B, A).normal(0.0f, 1.0f, 0.0f);
+        vc.vertex(mat, (float) x2, (float) y2, (float) z2).color(R, G, B, A).normal(0.0f, 1.0f, 0.0f);
     }
 }
