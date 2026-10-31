@@ -44,6 +44,15 @@ public final class NextThrowAdvisor {
      * @return 推荐的下一个投掷点；若已能定位、或还没有任何方位射线，返回 null。
      */
     public static Advice advise(ClientPlayerEntity player, StrongholdLocator locator) {
+        return advise(player.getX(), player.getZ(), locator);
+    }
+
+    /**
+     * @param px 玩家水平坐标（可用插值坐标以获得更平滑的显示）
+     * @param pz 玩家水平坐标
+     * @return 推荐的下一个投掷点；若已能定位、或还没有任何方位射线，返回 null。
+     */
+    public static Advice advise(double px, double pz, StrongholdLocator locator) {
         // 已经有交点（≥2 条射线）时不再需要建议
         if (locator.hasEstimate()) {
             return null;
@@ -56,9 +65,6 @@ public final class NextThrowAdvisor {
         // 方位线的单位法线
         double nx = -ray.dz;
         double nz = ray.dx;
-
-        double px = player.getX();
-        double pz = player.getZ();
 
         // 把玩家投影到方位线上，得到垂足 F
         double t = (px - ray.x) * ray.dx + (pz - ray.z) * ray.dz;
