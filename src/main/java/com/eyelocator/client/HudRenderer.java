@@ -1,5 +1,9 @@
 package com.eyelocator.client;
 
+import com.eyelocator.core.ChannelManager;
+import com.eyelocator.core.LocatorChannel;
+import com.eyelocator.core.NextThrowAdvisor;
+import com.eyelocator.core.StrongholdLocator;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 
 import net.minecraft.client.MinecraftClient;
@@ -52,7 +56,7 @@ public final class HudRenderer implements HudRenderCallback {
         if (locator.hasEstimate()) {
             renderEstimate(context, mc, playerPos, locator, config);
         } else {
-            NextThrowAdvisor.Advice advice = NextThrowAdvisor.advise(playerPos.x, playerPos.z, locator);
+            NextThrowAdvisor.Advice advice = NextThrowAdvisor.advise(playerPos.x, playerPos.z, locator, config.baseline);
             if (advice != null) {
                 renderAdvice(context, mc, advice, config);
             } else if (locator.sampleCount() > 0) {

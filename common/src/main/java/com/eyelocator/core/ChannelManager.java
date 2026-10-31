@@ -1,4 +1,4 @@
-package com.eyelocator.client;
+package com.eyelocator.core;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -12,6 +12,10 @@ public final class ChannelManager {
     public static final String VANILLA_EYE = "minecraft:eye_of_ender";
 
     private static final Map<String, LocatorChannel> CHANNELS = new LinkedHashMap<>();
+    /** 通道显示名覆盖，由各加载器在读取配置后注入。 */
+    private static Map<String, String> nameOverrides = new LinkedHashMap<>();
+    /** 新建通道时采用的离群剔除阈值，由配置注入。 */
+    private static double outlierResidual = 80.0;
     private static LocatorChannel active;
 
     private ChannelManager() {
@@ -19,7 +23,22 @@ public final class ChannelManager {
 
     /** 取得或创建一个通道（显示名会自动推导，或用配置覆盖）。 */
     public static LocatorChannel getOrCreate(String id) {
-        return CHANNELS.computeIfAbsent(id, key -> new LocatorChannel(key, displayNameFor(key)));
+        return CHANNELS.computeIfAbsent(id, key -> {
+            LocatorChannel channel = new LocatorChannel(key, displayNameFor(key));
+            channel.locator.setOutlierResidual(outlierResidual);
+            return channel;
+        });
+    }
+
+    /** 更新所有通道的离群剔除阈值。 */
+    public static void setOutlierResidual(double value) {
+        if (value <= 0) {
+            return;
+        }
+        outlierResidual = value;
+        for (LocatorChannel channel : CHANNELS.values()) {
+            channel.locator.setOutlierResidual(value);
+        }
     }
 
     public static LocatorChannel byId(String id) {
@@ -60,14 +79,22 @@ public final class ChannelManager {
         active = null;
     }
 
+    /** 注入/更新通道显示名覆盖表（配置里的 {@code channelNames}）。 */
+    public static void setNameOverrides(Map<String, String> overrides) {
+        nameOverrides = overrides == null ? new LinkedHashMap<>() : new LinkedHashMap<>(overrides);
+        for (LocatorChannel channel : CHANNELS.values()) {
+            channel.setDisplayName(displayNameFor(channel.id));
+        }
+    }
+
     private static String displayNameFor(String id) {
-        EyeLocatorConfig config = EyeLocatorConfig.get();
-        String custom = config.channelNames.get(id);
+        String custom = nameOverrides.get(id);
         if (custom != null && !custom.trim().isEmpty()) {
             return custom.trim();
         }
-        if (VANILLA_EYE.equals(id)) {
-            return "末地要塞";
+        String builtIn = BuiltInCompat.displayName(id);
+        if (builtIn != null) {
+            return builtIn;
         }
         // 没配置时用实体 id 的路径部分，例如 "ancient_eye" -> "Ancient Eye"
         String path = id;

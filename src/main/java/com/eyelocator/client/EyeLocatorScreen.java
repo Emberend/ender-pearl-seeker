@@ -1,5 +1,8 @@
 package com.eyelocator.client;
 
+import com.eyelocator.core.ChannelManager;
+import com.eyelocator.core.LocatorChannel;
+import com.eyelocator.core.StrongholdLocator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;

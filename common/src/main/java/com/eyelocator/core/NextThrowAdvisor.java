@@ -1,6 +1,4 @@
-package com.eyelocator.client;
-
-import net.minecraft.client.network.ClientPlayerEntity;
+package com.eyelocator.core;
 
 /**
  * 第一次投掷之后，给玩家一个"最佳下一投掷点"：
@@ -41,18 +39,12 @@ public final class NextThrowAdvisor {
     }
 
     /**
-     * @return 推荐的下一个投掷点；若已能定位、或还没有任何方位射线，返回 null。
-     */
-    public static Advice advise(ClientPlayerEntity player, StrongholdLocator locator) {
-        return advise(player.getX(), player.getZ(), locator);
-    }
-
-    /**
      * @param px 玩家水平坐标（可用插值坐标以获得更平滑的显示）
      * @param pz 玩家水平坐标
+     * @param baseline 横向基准距离（来自配置）
      * @return 推荐的下一个投掷点；若已能定位、或还没有任何方位射线，返回 null。
      */
-    public static Advice advise(double px, double pz, StrongholdLocator locator) {
+    public static Advice advise(double px, double pz, StrongholdLocator locator, double baseline) {
         // 已经有交点（≥2 条射线）时不再需要建议
         if (locator.hasEstimate()) {
             return null;
@@ -61,8 +53,6 @@ public final class NextThrowAdvisor {
         if (ray == null) {
             return null;
         }
-
-        double baseline = EyeLocatorConfig.get().baseline;
 
         // 方位线的单位法线
         double nx = -ray.dz;

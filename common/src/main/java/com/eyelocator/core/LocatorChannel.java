@@ -1,4 +1,4 @@
-package com.eyelocator.client;
+package com.eyelocator.core;
 
 /**
  * 一个定位通道：对应一种"会飞向某个结构"的道具/实体。
@@ -12,13 +12,17 @@ public final class LocatorChannel {
     public final String id;
 
     /** 给玩家看的名字，例如"末地要塞"。可在配置里覆盖。 */
-    public final String displayName;
+    public String displayName;
 
     /** 本通道自己的射线集合。 */
     public final StrongholdLocator locator = new StrongholdLocator();
 
     public LocatorChannel(String id, String displayName) {
         this.id = id;
+        this.displayName = displayName;
+    }
+
+    void setDisplayName(String displayName) {
         this.displayName = displayName;
     }
 

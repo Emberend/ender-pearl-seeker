@@ -1,4 +1,4 @@
-package com.eyelocator.client;
+package com.eyelocator.core;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +24,9 @@ public final class StrongholdLocator {
         }
     }
 
+    /** 离群射线剔除阈值（水平垂距，单位格）。由配置注入。 */
+    private double outlierResidual = 80.0;
+
     private final List<Ray> rays = new ArrayList<>();
     private final List<Ray> usedRays = new ArrayList<>();
 
@@ -32,6 +35,19 @@ public final class StrongholdLocator {
     private double estZ;
     private double residual;
     private int excluded;
+
+    /** 设置离群剔除阈值，并立即重算（配置变更后调用）。 */
+    public void setOutlierResidual(double outlierResidual) {
+        if (outlierResidual <= 0) {
+            return;
+        }
+        this.outlierResidual = outlierResidual;
+        recompute();
+    }
+
+    public double outlierResidual() {
+        return outlierResidual;
+    }
 
     public void reset() {
         rays.clear();
@@ -172,7 +188,7 @@ public final class StrongholdLocator {
             return;
         }
 
-        double threshold = EyeLocatorConfig.get().outlierResidual;
+        double threshold = outlierResidual;
         List<Ray> working = new ArrayList<>(rays);
 
         // 稳健拟合：样本 >=3 时迭代剔除残差最大的离群射线

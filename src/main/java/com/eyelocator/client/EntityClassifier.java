@@ -1,5 +1,7 @@
 package com.eyelocator.client;
 
+import com.eyelocator.core.BuiltInCompat;
+
 import java.util.Locale;
 
 import net.minecraft.entity.Entity;
@@ -45,8 +47,8 @@ public final class EntityClassifier {
             }
         }
 
-        // 2. 原版眼睛及其子类
-        if (entity instanceof EyeOfEnderEntity) {
+        // 2. 内置兼容表（含原版末影之眼与已知模组的同类道具）
+        if (BuiltInCompat.isKnown(id) || entity instanceof EyeOfEnderEntity) {
             return id;
         }
 

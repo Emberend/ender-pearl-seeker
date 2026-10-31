@@ -1,5 +1,8 @@
 package com.eyelocator.client;
 
+import com.eyelocator.core.ChannelManager;
+import com.eyelocator.core.LocatorChannel;
+import com.eyelocator.core.StrongholdLocator;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.DoubleArgumentType;

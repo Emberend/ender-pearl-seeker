@@ -14,6 +14,15 @@ repositories {
 	// Loom adds the essential maven repositories automatically.
 }
 
+// 与加载器无关的纯算法代码，Fabric 与 Forge 两个模块共用同一份源码
+sourceSets {
+	main {
+		java {
+			srcDir 'common/src/main/java'
+		}
+	}
+}
+
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"

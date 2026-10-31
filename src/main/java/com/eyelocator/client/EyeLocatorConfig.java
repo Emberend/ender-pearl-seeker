@@ -1,5 +1,7 @@
 package com.eyelocator.client;
 
+import com.eyelocator.core.ChannelManager;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -95,6 +97,13 @@ public final class EyeLocatorConfig {
             EyeLocatorClient.LOGGER.warn("读取配置失败，使用默认值: {}", e.getMessage());
         }
         instance.normalize();
+        applyToCommon(instance);
+    }
+
+    /** 把配置推给与加载器无关的共享层。 */
+    private static void applyToCommon(EyeLocatorConfig cfg) {
+        ChannelManager.setNameOverrides(cfg.channelNames);
+        ChannelManager.setOutlierResidual(cfg.outlierResidual);
     }
 
     /** 补齐旧配置里缺失的字段，避免 Gson 反序列化出 null。 */
@@ -113,6 +122,7 @@ public final class EyeLocatorConfig {
 
     public static void save() {
         instance.normalize();
+        applyToCommon(instance);
         try {
             Files.createDirectories(PATH.getParent());
             Files.writeString(PATH, GSON.toJson(instance), StandardCharsets.UTF_8);

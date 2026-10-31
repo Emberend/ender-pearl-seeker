@@ -1,5 +1,6 @@
 package com.eyelocator.client;
 
+import com.eyelocator.core.ChannelManager;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;

@@ -1,5 +1,8 @@
 package com.eyelocator.client;
 
+import com.eyelocator.core.ChannelManager;
+import com.eyelocator.core.LocatorChannel;
+import com.eyelocator.core.StrongholdLocator;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
