@@ -7,7 +7,11 @@
 	"authors": [
 		"Emberend"
 	],
-	"contact": {},
+	"contact": {
+		"homepage": "https://github.com/Emberend/ender-pearl-seeker",
+		"sources": "https://github.com/Emberend/ender-pearl-seeker",
+		"issues": "https://github.com/Emberend/ender-pearl-seeker/issues"
+	},
 	"license": "MIT",
 	"icon": "assets/eyelocator/icon.png",
 	"environment": "client",
