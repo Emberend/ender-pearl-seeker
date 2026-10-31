@@ -100,6 +100,13 @@ GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew deployMod
 
 开发运行（需要图形环境）：`./gradlew runClient`。
 
+### 发布版本
+先同步改 `gradle.properties` 里的 `mod_version`，然后打 tag 推送即可，GitHub Actions 会自动构建并创建 Release、上传 jar：
+
+```bash
+git tag v0.6.3 && git push origin v0.6.3
+```
+
 ## 目录结构
 
 ```
