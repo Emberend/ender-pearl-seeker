@@ -3,6 +3,11 @@ package com.eyelocator.client;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -53,6 +58,21 @@ public final class EyeLocatorConfig {
     /** 去重时：距离小于该值（同维度）的归档会被视为同一个要塞并合并。 */
     public double dedupeDistance = 48.0;
 
+    // ---- 兼容其它模组的定位道具 ----
+
+    /** 是否自动识别 id 里带关键词的实体（关掉后只有白名单与原版眼睛生效）。 */
+    public boolean autoDetect = true;
+
+    /** 自动识别的关键词，匹配实体 id 的路径部分。 */
+    public List<String> autoDetectKeywords = new ArrayList<>(Arrays.asList(
+            "eye", "seeker", "locator", "finder", "stronghold"));
+
+    /** 额外追踪的实体 id，支持 {@code *} 通配，例如 {@code someMod:*eye*}。 */
+    public List<String> trackedEntities = new ArrayList<>();
+
+    /** 覆盖通道显示名：实体 id -> 名字，例如 {@code "someMod:ancient_eye": "远古城市"}。 */
+    public Map<String, String> channelNames = new LinkedHashMap<>();
+
     private EyeLocatorConfig() {
     }
 
@@ -74,9 +94,25 @@ public final class EyeLocatorConfig {
         } catch (Exception e) {
             EyeLocatorClient.LOGGER.warn("读取配置失败，使用默认值: {}", e.getMessage());
         }
+        instance.normalize();
+    }
+
+    /** 补齐旧配置里缺失的字段，避免 Gson 反序列化出 null。 */
+    private void normalize() {
+        if (autoDetectKeywords == null || autoDetectKeywords.isEmpty()) {
+            autoDetectKeywords = new ArrayList<>(Arrays.asList(
+                    "eye", "seeker", "locator", "finder", "stronghold"));
+        }
+        if (trackedEntities == null) {
+            trackedEntities = new ArrayList<>();
+        }
+        if (channelNames == null) {
+            channelNames = new LinkedHashMap<>();
+        }
     }
 
     public static void save() {
+        instance.normalize();
         try {
             Files.createDirectories(PATH.getParent());
             Files.writeString(PATH, GSON.toJson(instance), StandardCharsets.UTF_8);

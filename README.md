@@ -15,6 +15,7 @@
 ## 功能
 
 - **自动三角定位**：扔出的末影之眼会被追踪，自动提取它飞行的方向，多条方向线求交点即要塞位置。
+- **兼容其它模组的同类道具**：凡是"使用后飞向某个结构"的道具都能用同一套算法定位；支持自动识别、白名单与手动学习，不同道具指向不同结构时各自独立计算（见下）。
 - **最佳下一投掷点**：只扔了第一次时，直接算出第二次该站的"最佳点位"（垂直于首次方位错开约 400 格），保证两条方位线夹角足够大、交点稳定，**两次锁定、不浪费眼睛/珍珠**；若你已经横向错开够远，会提示原地再扔即可。
 - **HUD 信息**：左上角显示估计坐标、水平距离、有效样本数（含剔除）、置信度和已归档数量。
 - **方向路标**：把目标位置投影到屏幕上，用手绘的极简路标标记（抗锯齿、加粗描边，支持菱形/圆环/十字三种样式）；跟随视角实时移动，超出视野贴到屏幕边缘，并显示距离。
@@ -35,6 +36,37 @@
 > 找新要塞时，已归档的旧要塞标记默认会自动隐藏（可在 GUI 或配置里关闭），避免干扰。
 
 > 关键：第二次投掷要**横向错开**首次方位线，方向线越不平行，交点越准。推荐点已经替你算好了，跟着青色标记走即可；站原地重复扔同方向不会提升精度（会被自动去重）。
+
+## 兼容其它模组的同类道具
+
+只要某个道具的行为和末影之眼一样——**使用后生成一个飞向某个结构的实体**——就能用同一套三角定位。识别按以下优先级：
+
+1. **内置**：原版 `EyeOfEnderEntity` 及其子类，直接追踪。
+2. **自动启发式**：实体 id 里含 `eye` / `seeker` / `locator` / `finder` / `stronghold` 之一时自动追踪（关键词可配置，也可整体关闭）。
+3. **白名单**：在 `config/eyelocator.json` 的 `trackedEntities` 里写实体 id，支持 `*` 通配：
+
+   ```json
+   "trackedEntities": ["somemod:ancient_eye", "othermod:*finder*"]
+   ```
+
+4. **手动学习（兜底）**：遇到不认识的模组，先用一次再识别：
+   ```
+   /eyelocator track next      # 15 秒内使用那个道具
+   ```
+   第一个从你身边飞出的实体（非生物）会被记住，并自动写入 `trackedEntities`，之后永久生效。
+
+**不同道具指向不同结构时互不干扰。** 每个实体 id 是一个独立「通道」，有自己的射线集合和归档。HUD 展示最近使用的那种道具的结果；用 `/eyelocator channels` 查看全部，`/eyelocator channel <实体id>` 切换显示。
+
+通道显示名可以自定义：
+
+```json
+"channelNames": {
+  "somemod:ancient_eye": "远古城市",
+  "othermod:*finder*": "海底神殿"
+}
+```
+
+> **不支持的形态**：有些模组不生成实体，而是直接给坐标、放粒子或往聊天栏发消息。这类拿不到"飞行方向"，无法用三角定位，不在兼容范围内。
 
 ## 原理
 
@@ -78,9 +110,14 @@
 | `/eyelocator baseline <50~2000>` | 最佳投掷点的横向基准距离 |
 | `/eyelocator color stronghold <#RRGGBB>` | 要塞路标颜色 |
 | `/eyelocator color advice <#RRGGBB>` | 投掷点路标颜色 |
-| `/eyelocator archived <true\|false>` | 是否显示已归档要塞标记 |
+| `/eyelocator archived <true\|false>` | 是否显示已归档目标标记 |
+| `/eyelocator track next` | 15 秒内使用一次道具，自动识别其实体并加入白名单 |
+| `/eyelocator track stop` | 取消识别模式 |
+| `/eyelocator track <实体id>` | 手动把实体加入白名单 |
+| `/eyelocator channels` | 列出所有定位通道 |
+| `/eyelocator channel <实体id>` | 切换 HUD 显示的通道 |
 
-配置文件主要字段：`markerStyle`、`markerScale`、`markerThickness`、`colorStronghold`、`colorAdvice`、`colorArchived`、`showDistance`、`showLabels`、`showPanel`、`baseline`、`outlierResidual`、`detectStrongholdChange`、`changeDistance`、`showArchived`、`hideArchivedWhileSearching`、`dedupeDistance`。
+配置文件主要字段：`markerStyle`、`markerScale`、`markerThickness`、`colorStronghold`、`colorAdvice`、`colorArchived`、`showDistance`、`showLabels`、`showPanel`、`baseline`、`outlierResidual`、`detectStrongholdChange`、`changeDistance`、`showArchived`、`hideArchivedWhileSearching`、`dedupeDistance`；兼容相关：`autoDetect`、`autoDetectKeywords`、`trackedEntities`、`channelNames`。
 
 ## 构建
 
@@ -129,7 +166,7 @@ GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew deployMod
 先同步改 `gradle.properties` 里的 `mod_version`，然后打 tag 推送。GitHub Actions 会构建所有支持版本，并把各版本 jar 一起附到 Release：
 
 ```bash
-git tag v0.7.0 && git push origin v0.7.0
+git tag vX.Y.Z && git push origin vX.Y.Z
 ```
 
 ## 目录结构
@@ -140,18 +177,23 @@ src/main/java/com/eyelocator/client/
 ├── EyeLocatorCommands.java  # /eyelocator 客户端命令
 ├── EyeLocatorScreen.java    # 管理界面（设置 / 归档）
 ├── EyeLocatorConfig.java    # JSON 配置读写
-├── EyeTracker.java          # 追踪末影之眼实体，产出方位射线
+├── EyeTracker.java          # 追踪定位投射物（任意实体），产出方位射线
+├── EntityClassifier.java    # 识别哪些实体是"会飞向结构的道具"
+├── LocatorChannel.java      # 一个定位来源（实体 id）及其独立射线集合
+├── ChannelManager.java      # 管理所有通道，记录最近使用的通道
 ├── StrongholdLocator.java   # 最小二乘求交 + 离群剔除，坐标/残差/置信度
-├── StrongholdRegistry.java  # 多要塞归档（持久化）
+├── StrongholdRegistry.java  # 按通道隔离的多目标归档（持久化）
 ├── HudRenderer.java         # 2D HUD：信息面板 + 可配置路标 + 归档标记
 └── NextThrowAdvisor.java    # 首次投掷后计算最佳下一投掷点
 
-scripts/build-all.sh         # 为 1.21.1–1.21.8 批量构建
+scripts/build-all.sh         # 为所有支持版本批量构建
 ```
 
 ## 已知限制
 
 - 只按水平面求交，路标高度锚定相机高度（不采样目标地形）。
+- 兼容性依赖"道具会生成飞行实体"这一前提；直接给坐标或只发消息的道具无法支持。
+- 自动识别按实体 id 关键词判断，个别命名特殊的道具需要手动 `/eyelocator track` 加白名单。
 - 路标是屏幕空间绘制，会穿透地形显示（作为路标通常更有用）。
 - 当前定位（未完成的射线）仅存在于会话中；已归档的要塞会持久化。
 

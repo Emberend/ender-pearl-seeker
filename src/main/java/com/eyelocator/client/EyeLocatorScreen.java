@@ -133,13 +133,14 @@ public final class EyeLocatorScreen extends Screen {
 
         ButtonWidget addCurrent = ButtonWidget.builder(Text.literal("归档当前坐标"), b -> archiveCurrent())
                 .dimensions(x, y, addW, h).build();
-        addCurrent.active = EyeLocatorClient.LOCATOR.hasEstimate();
+        addCurrent.active = EyeLocatorClient.locator().hasEstimate();
         addCurrent.setTooltip(Tooltip.of(Text.literal("把当前算出的要塞坐标保存到归档，并可命名")));
         addDrawableChild(addCurrent);
         x += addW + gap;
 
         addDrawableChild(ButtonWidget.builder(Text.literal("去重"), b -> {
-            int merged = StrongholdRegistry.dedupe(EyeLocatorConfig.get().dedupeDistance);
+            int merged = StrongholdRegistry.dedupe(EyeLocatorConfig.get().dedupeDistance,
+                    EyeLocatorClient.activeChannelId());
             page = 0;
             if (this.client != null && this.client.player != null) {
                 this.client.player.sendMessage(Text.literal("已合并 " + merged + " 个相近要塞"), true);
@@ -154,15 +155,16 @@ public final class EyeLocatorScreen extends Screen {
     }
 
     private void archiveCurrent() {
-        StrongholdLocator locator = EyeLocatorClient.LOCATOR;
+        StrongholdLocator locator = EyeLocatorClient.locator();
         if (!locator.hasEstimate() || this.client == null || this.client.world == null) {
             return;
         }
         String dimension = this.client.world.getRegistryKey().getValue().toString();
+        String channelId = EyeLocatorClient.activeChannelId();
         double x = locator.estX();
         double z = locator.estZ();
         this.client.setScreen(new TextPromptScreen(this, "归档当前坐标", "",
-                name -> StrongholdRegistry.add(name, x, z, dimension)));
+                name -> StrongholdRegistry.add(channelId, name, x, z, dimension)));
     }
 
     private void renameEntry(StrongholdRegistry.Entry entry) {
@@ -245,8 +247,10 @@ public final class EyeLocatorScreen extends Screen {
             int y = rowY + (i - start) * ROW_HEIGHT;
 
             String name = entry.name == null || entry.name.isEmpty() ? "未命名" : entry.name;
-            String text = String.format("%s   X:%.0f Z:%.0f   %s   置信%d%%",
-                    name, entry.x, entry.z, dimName(entry.dimension),
+            LocatorChannel owner = ChannelManager.byId(entry.channel);
+            String channelName = owner == null ? "" : owner.displayName;
+            String text = String.format("%s   X:%.0f Z:%.0f   %s   %s   置信%d%%",
+                    name, entry.x, entry.z, dimName(entry.dimension), channelName,
                     Math.round(entry.confidence * 100));
             context.drawTextWithShadow(this.textRenderer, Text.literal(text), left, y + 4,
                     entry.dimension.equals(dimension) ? 0xFFE0E0E0 : 0xFF909090);

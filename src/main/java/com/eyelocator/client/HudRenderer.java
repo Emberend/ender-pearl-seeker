@@ -46,7 +46,8 @@ public final class HudRenderer implements HudRenderCallback {
 
         // 使用实体当前位置；路标投影用相机插值，移动时依然平滑
         Vec3d playerPos = player.getPos();
-        StrongholdLocator locator = EyeLocatorClient.LOCATOR;
+        LocatorChannel channel = ChannelManager.active();
+        StrongholdLocator locator = channel.locator;
 
         if (locator.hasEstimate()) {
             renderEstimate(context, mc, playerPos, locator, config);
@@ -133,7 +134,7 @@ public final class HudRenderer implements HudRenderCallback {
     /** 把已归档的其它要塞画成较小、较暗的路标。 */
     private void drawArchivedMarkers(DrawContext context, MinecraftClient mc, EyeLocatorConfig config) {
         String dimension = mc.world.getRegistryKey().getValue().toString();
-        StrongholdLocator locator = EyeLocatorClient.LOCATOR;
+        StrongholdLocator locator = ChannelManager.active().locator;
 
         int radius = Math.max(3, (int) Math.round(BASE_RADIUS * 0.6 * clamp(config.markerScale, 0.4, 3.0)));
         float thickness = Math.max(1.0f, (float) (config.scaledThickness() * 0.7));

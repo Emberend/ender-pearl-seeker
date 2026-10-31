@@ -25,16 +25,19 @@ public final class StrongholdRegistry {
         public String dimension;
         /** 玩家自定义名称，可为空。 */
         public String name;
+        /** 来源通道（实体 id）；旧数据没有这个字段时按原版末影之眼处理。 */
+        public String channel;
 
         Entry() {
         }
 
-        Entry(double x, double z, double confidence, String dimension) {
+        Entry(double x, double z, double confidence, String dimension, String channel) {
             this.x = x;
             this.z = z;
             this.confidence = confidence;
             this.hits = 1;
             this.dimension = dimension;
+            this.channel = channel;
         }
     }
 
@@ -61,6 +64,9 @@ public final class StrongholdRegistry {
             if (data != null && data.entries != null) {
                 for (Entry e : data.entries) {
                     if (e != null && e.dimension != null) {
+                        if (e.channel == null || e.channel.isEmpty()) {
+                            e.channel = ChannelManager.VANILLA_EYE;
+                        }
                         ENTRIES.add(e);
                     }
                 }
@@ -95,8 +101,8 @@ public final class StrongholdRegistry {
     }
 
     /** 手动归档一个坐标，可带名称。 */
-    public static Entry add(String name, double x, double z, String dimension) {
-        Entry entry = new Entry(x, z, 1.0, dimension);
+    public static Entry add(String channel, String name, double x, double z, String dimension) {
+        Entry entry = new Entry(x, z, 1.0, dimension, channel);
         entry.name = normalizeName(name);
         ENTRIES.add(entry);
         save();
@@ -109,15 +115,17 @@ public final class StrongholdRegistry {
     }
 
     /**
-     * 合并同维度内距离小于 {@code threshold} 的归档，返回被合并掉的条目数。
+     * 合并同通道、同维度内距离小于 {@code threshold} 的归档，返回被合并掉的条目数。
+     * {@code channel} 为 null 时对所有通道生效。
      */
-    public static int dedupe(double threshold) {
+    public static int dedupe(double threshold, String channel) {
         int removed = 0;
         for (int i = 0; i < ENTRIES.size(); i++) {
             Entry a = ENTRIES.get(i);
             for (int j = i + 1; j < ENTRIES.size(); ) {
                 Entry b = ENTRIES.get(j);
                 if (a.dimension.equals(b.dimension)
+                        && (channel == null || channel.equals(a.channel))
                         && Math.hypot(a.x - b.x, a.z - b.z) < threshold) {
                     double w1 = Math.max(0.05, a.confidence);
                     double w2 = Math.max(0.05, b.confidence);
@@ -157,16 +165,43 @@ public final class StrongholdRegistry {
         return ENTRIES.size();
     }
 
+    public static int size(String channel) {
+        if (channel == null) {
+            return ENTRIES.size();
+        }
+        int count = 0;
+        for (Entry e : ENTRIES) {
+            if (channel.equals(e.channel)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     public static List<Entry> entries() {
         return ENTRIES;
     }
 
-    /** 更新归档：同维度内近邻合并、否则新增。 */
-    public static void update(double x, double z, double confidence, String dimension) {
+    /** 某通道的归档（返回新列表，避免调用方误改）。 */
+    public static List<Entry> entries(String channel) {
+        if (channel == null) {
+            return ENTRIES;
+        }
+        List<Entry> filtered = new ArrayList<>();
+        for (Entry e : ENTRIES) {
+            if (channel.equals(e.channel)) {
+                filtered.add(e);
+            }
+        }
+        return filtered;
+    }
+
+    /** 更新归档：同通道、同维度内近邻合并，否则新增。 */
+    public static void update(String channel, double x, double z, double confidence, String dimension) {
         Entry nearest = null;
         double nearestDist = Double.MAX_VALUE;
         for (Entry e : ENTRIES) {
-            if (!e.dimension.equals(dimension)) {
+            if (!e.dimension.equals(dimension) || !channel.equals(e.channel)) {
                 continue;
             }
             double d = Math.hypot(e.x - x, e.z - z);
@@ -183,7 +218,7 @@ public final class StrongholdRegistry {
             nearest.confidence = Math.max(nearest.confidence, confidence);
             nearest.hits++;
         } else {
-            ENTRIES.add(new Entry(x, z, confidence, dimension));
+            ENTRIES.add(new Entry(x, z, confidence, dimension, channel));
         }
         save();
     }

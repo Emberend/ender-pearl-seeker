@@ -6,14 +6,14 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.EyeOfEnderEntity;
+import net.minecraft.entity.EntityType;
 
 /**
- * 追踪客户端上的末影之眼实体：记录它刚出现时的位置，等它飞出一段距离后，
- * 用"起点 -> 当前位置"的水平位移方向作为指向要塞的方位射线。
+ * 追踪客户端上的"定位投射物"（原版末影之眼，以及其它模组里同样会飞向结构的道具）。
  *
- * <p>由于末影之眼在客户端是由服务端同步的位置驱动的，我们不需要读取它的内部目标点，
- * 只观察它实际飞行的水平方向即可，兼容单人/联机。</p>
+ * <p>记录它刚出现时的位置，等它飞出一段距离后，用"起点 -> 当前位置"的水平位移方向
+ * 作为指向目标的方位射线。由于只观察实际飞行方向，不需要读取实体内部的目标点，
+ * 单人/联机都适用，也不受地形/结构 Mod 影响。</p>
  */
 public final class EyeTracker {
 
@@ -28,17 +28,22 @@ public final class EyeTracker {
     private static final class Track {
         final double x;
         final double z;
+        final EntityType<?> type;
+        final String channel;
         int age;
 
-        Track(double x, double z) {
+        Track(double x, double z, EntityType<?> type, String channel) {
             this.x = x;
             this.z = z;
+            this.type = type;
+            this.channel = channel;
         }
     }
 
-    /** 当一个新的末影之眼实体被客户端加载时调用。 */
-    public static void begin(Entity entity) {
-        TRACKED.put(entity.getId(), new Track(entity.getX(), entity.getZ()));
+    /** 当一个新的定位投射物被客户端加载时调用。 */
+    public static void begin(Entity entity, String channel) {
+        TRACKED.put(entity.getId(),
+                new Track(entity.getX(), entity.getZ(), entity.getType(), channel));
     }
 
     public static void clear() {
@@ -59,7 +64,8 @@ public final class EyeTracker {
             Track track = entry.getValue();
             Entity entity = world.getEntityById(entry.getKey());
 
-            if (entity == null || !(entity instanceof EyeOfEnderEntity) || entity.isRemoved()) {
+            // 实体消失，或 id 被别的实体复用（类型对不上）
+            if (entity == null || entity.isRemoved() || entity.getType() != track.type) {
                 it.remove();
                 continue;
             }
@@ -69,7 +75,7 @@ public final class EyeTracker {
             double dist = Math.hypot(dx, dz);
 
             if (dist >= MIN_MOVE) {
-                EyeLocatorClient.onRayCompleted(
+                EyeLocatorClient.onRayCompleted(track.channel,
                         new StrongholdLocator.Ray(track.x, track.z, dx / dist, dz / dist));
                 it.remove();
             } else if (++track.age > MAX_AGE_TICKS) {
