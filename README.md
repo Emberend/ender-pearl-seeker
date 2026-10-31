@@ -129,6 +129,16 @@ GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew build
 
 产物：`build/libs/eyelocator-<version>.jar`（外加 `-sources.jar`）。
 
+### 清理构建缓存
+
+Loom 会为每个编译过的 Minecraft 版本各存一份 remap 产物（每个 120~150 MB），时间久了项目目录会膨胀到数 GB。源码本身只有 100 KB 左右，其余全是缓存。
+
+```bash
+./scripts/clean-caches.sh
+```
+
+只保留 `build-all.sh` 实际使用的 4 个编译版本（1.20.1 / 1.20.6 / 1.21.1 / 1.21.6），其余版本、`remapped_mods` 和 `build/` 中间产物会被删除（`build/versions` 里的成品 jar 保留）。下次构建未保留的版本时会重新下载，属正常现象。
+
 ### 一键部署到游戏
 构建并自动复制到本机 mods 目录（会先删掉旧的 `eyelocator-*.jar`，避免重复 mod id）：
 
@@ -187,6 +197,7 @@ src/main/java/com/eyelocator/client/
 └── NextThrowAdvisor.java    # 首次投掷后计算最佳下一投掷点
 
 scripts/build-all.sh         # 为所有支持版本批量构建
+scripts/clean-caches.sh      # 清理过期的 Gradle / Loom 缓存
 ```
 
 ## 已知限制
