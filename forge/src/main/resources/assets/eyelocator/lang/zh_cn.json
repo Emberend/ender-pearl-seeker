@@ -3,6 +3,14 @@
 	"key.eyelocator.menu": "打开末影寻珠管理界面",
 	"category.eyelocator": "末影寻珠",
 
+	"eyelocator.channel.eye_of_ender": "末地要塞",
+	"eyelocator.channel.cryptic_eye": "墓穴之眼",
+	"eyelocator.channel.void_eye": "虚空之眼",
+	"eyelocator.channel.ominous_eye": "不祥之眼",
+	"eyelocator.channel.prison_eye": "监狱之眼",
+	"eyelocator.channel.mirage_eye": "迷乱之眼",
+	"eyelocator.channel.eye_of_dungeon": "灾变地牢",
+
 	"eyelocator.hud.recorded": "方位已记录，再扔一次即可三角定位",
 	"eyelocator.hud.estimate": "%s ≈  X:%s  Z:%s",
 	"eyelocator.hud.distance": "距离 %s 格 · %s · 置信度 %s%%",

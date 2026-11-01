@@ -299,14 +299,14 @@ public final class ForgeEyeLocatorScreen extends Screen {
         Component status;
         if (!locator.hasEstimate()) {
             status = Component.translatable("eyelocator.screen.status.unlocated",
-                    channel.displayName, locator.sampleCount());
+                    ClientSetup.channelName(channel.id), locator.sampleCount());
         } else {
             String coords = "X:" + Fmt.number(locator.estX()) + " Z:" + Fmt.number(locator.estZ());
             status = narrow
                     ? Component.translatable("eyelocator.screen.status.narrow",
-                            channel.displayName, coords, locator.sampleCount())
+                            ClientSetup.channelName(channel.id), coords, locator.sampleCount())
                     : Component.translatable("eyelocator.screen.status.full",
-                            channel.displayName, coords, locator.sampleCount(),
+                            ClientSetup.channelName(channel.id), coords, locator.sampleCount(),
                             Math.round(locator.confidence() * 100));
         }
         graphics.drawCenteredString(this.font, status, this.width / 2, 46, COLOR_DIM);
@@ -378,7 +378,7 @@ public final class ForgeEyeLocatorScreen extends Screen {
                     ? Component.translatable("eyelocator.screen.unnamed")
                     : Component.literal(entry.name);
             LocatorChannel owner = ChannelManager.byId(entry.channel);
-            Component channelName = owner == null ? Component.literal("-") : Component.literal(owner.displayName);
+            Component channelName = owner == null ? Component.literal("-") : ClientSetup.channelText(owner.id);
             int confidence = (int) Math.round(entry.confidence * 100);
             // 窄屏（320×240）放不下通道名，先省掉它，坐标和维度优先
             Component line = narrow

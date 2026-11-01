@@ -161,7 +161,7 @@ public final class EyeLocatorCommands {
         feedback(source, Text.translatable("eyelocator.cmd.status_tuning",
                 cfg.baseline, cfg.outlierResidual));
         feedback(source, Text.translatable("eyelocator.cmd.status_channel",
-                channel.displayName, locator.sampleCount(), StrongholdRegistry.size(channel.id),
+                EyeLocatorClient.channelName(channel.id), locator.sampleCount(), StrongholdRegistry.size(channel.id),
                 Text.translatable(locator.hasEstimate()
                         ? "eyelocator.cmd.status_located" : "eyelocator.cmd.status_unlocated")));
         if (ChannelManager.all().size() > 1) {
@@ -186,7 +186,7 @@ public final class EyeLocatorCommands {
         }
         LocatorChannel channel = ChannelManager.getOrCreate(id);
         ChannelManager.setActive(channel);
-        feedback(source, Text.translatable("eyelocator.cmd.track_added", id, channel.displayName));
+        feedback(source, Text.translatable("eyelocator.cmd.track_added", id, EyeLocatorClient.channelName(channel.id)));
         return 1;
     }
 
@@ -198,7 +198,7 @@ public final class EyeLocatorCommands {
         LocatorChannel channel = ChannelManager.getOrCreate(id);
         ChannelManager.setActive(channel);
         EyeLocatorClient.saveState();
-        feedback(source, Text.translatable("eyelocator.cmd.channel_switched", channel.displayName, channel.id));
+        feedback(source, Text.translatable("eyelocator.cmd.channel_switched", EyeLocatorClient.channelName(channel.id), channel.id));
         return 1;
     }
 
@@ -211,7 +211,7 @@ public final class EyeLocatorCommands {
         for (LocatorChannel channel : ChannelManager.all()) {
             feedback(source, Text.translatable("eyelocator.cmd.channel_line",
                     channel == ChannelManager.active() ? "*" : " ",
-                    channel.displayName,
+                    EyeLocatorClient.channelName(channel.id),
                     channel.locator.sampleCount(),
                     StrongholdRegistry.size(channel.id),
                     channel.locator.hasEstimate()

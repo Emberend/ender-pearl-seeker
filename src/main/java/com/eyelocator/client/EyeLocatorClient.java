@@ -88,6 +88,29 @@ public final class EyeLocatorClient implements ClientModInitializer {
         return ChannelManager.active().id;
     }
 
+    /**
+     * 通道显示名（纯文本）：用户自定义名称 > 内置名称的翻译 > 实体 id 的显示名。
+     * 用于把名字塞进 {@code %s} 占位符。
+     */
+    public static String channelName(String id) {
+        LocatorChannel channel = ChannelManager.byId(id);
+        if (channel == null) {
+            return id == null ? "-" : id;
+        }
+        String key = ChannelManager.displayKey(id);
+        return key == null ? channel.displayName : Text.translatable(key).getString();
+    }
+
+    /** 通道显示名（Text 形式），用于列表/标签。 */
+    public static Text channelText(String id) {
+        LocatorChannel channel = ChannelManager.byId(id);
+        if (channel == null) {
+            return Text.literal(id == null ? "-" : id);
+        }
+        String key = ChannelManager.displayKey(id);
+        return key == null ? Text.literal(channel.displayName) : Text.translatable(key);
+    }
+
     /** 当前维度 id（可能为 null，比如还没进世界）。 */
     public static String currentDimension() {
         return currentDimension;
@@ -218,7 +241,7 @@ public final class EyeLocatorClient implements ClientModInitializer {
 
         double distance = Math.hypot(x - client.player.getX(), z - client.player.getZ());
         client.player.sendMessage(Text.translatable("eyelocator.chat.locked",
-                channel.displayName, Fmt.number(x), Fmt.number(z),
+                channelName(channel.id), Fmt.number(x), Fmt.number(z),
                 Math.round(distance), Math.round(channel.locator.confidence() * 100)), false);
     }
 

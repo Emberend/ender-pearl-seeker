@@ -87,6 +87,21 @@ public final class ChannelManager {
         }
     }
 
+    /**
+     * 内置通道的翻译键；用户自定义了名称，或 id 不在内置表里时返回 {@code null}
+     * （此时界面应退回 {@link LocatorChannel#displayName}）。
+     */
+    public static String displayKey(String id) {
+        if (id == null) {
+            return null;
+        }
+        String custom = nameOverrides.get(id);
+        if (custom != null && !custom.trim().isEmpty()) {
+            return null;
+        }
+        return BuiltInCompat.displayKey(id);
+    }
+
     private static String displayNameFor(String id) {
         String custom = nameOverrides.get(id);
         if (custom != null && !custom.trim().isEmpty()) {

@@ -18,8 +18,11 @@ import java.util.Set;
  */
 public final class BuiltInCompat {
 
-    /** 已确认的定位道具：实体 id -> 默认通道显示名。 */
+    /** 已确认的定位道具：实体 id -> 默认通道显示名（仅作兜底，界面用翻译键）。 */
     private static final Map<String, String> NAMES;
+
+    /** 已确认的定位道具：实体 id -> 语言文件里的翻译键。 */
+    private static final Map<String, String> KEYS;
 
     /**
      * 已确认<strong>不是</strong>定位道具的实体 id。
@@ -55,6 +58,16 @@ public final class BuiltInCompat {
 
         NAMES = Collections.unmodifiableMap(names);
 
+        Map<String, String> keys = new LinkedHashMap<>();
+        keys.put("minecraft:eye_of_ender", "eyelocator.channel.eye_of_ender");
+        keys.put("goety:cryptic_eye", "eyelocator.channel.cryptic_eye");
+        keys.put("goety:void_eye", "eyelocator.channel.void_eye");
+        keys.put("goetyawaken:ominous_eye", "eyelocator.channel.ominous_eye");
+        keys.put("goetyawaken:prison_eye", "eyelocator.channel.prison_eye");
+        keys.put("goetyawaken:mirage_eye", "eyelocator.channel.mirage_eye");
+        keys.put("cataclysm:eye_of_dungeon", "eyelocator.channel.eye_of_dungeon");
+        KEYS = Collections.unmodifiableMap(keys);
+
         Set<String> ignored = new HashSet<>();
         ignored.add("goety:survey_eye");
         ignored.add("goetyawaken:eye_of_overwatch_entity");
@@ -64,9 +77,14 @@ public final class BuiltInCompat {
     private BuiltInCompat() {
     }
 
-    /** 内置显示名；不是已知道具则返回 {@code null}。 */
+    /** 内置显示名（硬编码兜底，界面优先用 {@link #displayKey(String)}）。 */
     public static String displayName(String id) {
         return NAMES.get(id);
+    }
+
+    /** 内置显示名对应的翻译键；不是已知道具则返回 {@code null}。 */
+    public static String displayKey(String id) {
+        return KEYS.get(id);
     }
 
     public static boolean isKnown(String id) {

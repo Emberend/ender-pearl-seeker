@@ -3,6 +3,14 @@
 	"key.eyelocator.menu": "Open Ender Pearl Seeker menu",
 	"category.eyelocator": "Ender Pearl Seeker",
 
+	"eyelocator.channel.eye_of_ender": "Stronghold",
+	"eyelocator.channel.cryptic_eye": "Cryptic Eye",
+	"eyelocator.channel.void_eye": "Void Eye",
+	"eyelocator.channel.ominous_eye": "Ominous Eye",
+	"eyelocator.channel.prison_eye": "Prison Eye",
+	"eyelocator.channel.mirage_eye": "Mirage Eye",
+	"eyelocator.channel.eye_of_dungeon": "Cataclysm Dungeon",
+
 	"eyelocator.hud.recorded": "Bearing recorded — throw again to triangulate",
 	"eyelocator.hud.estimate": "%s ≈  X:%s  Z:%s",
 	"eyelocator.hud.distance": "%s blocks · %s · %s%% confidence",

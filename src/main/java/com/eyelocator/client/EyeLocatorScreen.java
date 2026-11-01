@@ -273,7 +273,7 @@ public final class EyeLocatorScreen extends Screen {
                     ? Text.translatable("eyelocator.screen.unnamed")
                     : Text.literal(entry.name);
             LocatorChannel owner = ChannelManager.byId(entry.channel);
-            Text channelName = owner == null ? Text.literal("-") : Text.literal(owner.displayName);
+            Text channelName = owner == null ? Text.literal("-") : EyeLocatorClient.channelText(owner.id);
             Text line = Text.translatable("eyelocator.screen.entry", name,
                     Fmt.number(entry.x), Fmt.number(entry.z), dimName(entry.dimension), channelName,
                     Math.round(entry.confidence * 100));

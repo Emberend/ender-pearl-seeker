@@ -119,7 +119,8 @@ public final class ForgeHud {
             key = mix(key, confidence);
             key = mix(key, archived);
             key = mix(key, meters);
-            key = mix(key, channel.displayName.hashCode());
+            // 用通道 id 做键：翻译只在重建面板时解析，避免每帧分配字符串
+            key = mix(key, channel.id.hashCode());
             key = mix(key, color);
 
             if (key != panelKey) {
@@ -129,7 +130,7 @@ public final class ForgeHud {
                                 locator.sampleCount(), locator.excluded())
                         : Component.translatable("eyelocator.hud.samples", locator.sampleCount());
                 panelLines = new Component[]{
-                        Component.translatable("eyelocator.hud.estimate", channel.displayName,
+                        Component.translatable("eyelocator.hud.estimate", ClientSetup.channelName(channel.id),
                                 Fmt.number(locator.estX()), Fmt.number(locator.estZ())),
                         Component.translatable("eyelocator.hud.distance", meters, samples, confidence),
                         Component.translatable("eyelocator.hud.footer", archived)
@@ -245,7 +246,7 @@ public final class ForgeHud {
                 } else {
                     LocatorChannel owner = ChannelManager.byId(entry.channel);
                     if (owner != null) {
-                        labelSource = owner.displayName;
+                        labelSource = ClientSetup.channelName(owner.id);
                     }
                 }
                 if (labelSource != null) {

@@ -142,7 +142,7 @@ public final class ForgeCommands {
         feedback(source, Component.translatable("eyelocator.cmd.status_tuning",
                 cfg.baseline, cfg.outlierResidual));
         feedback(source, Component.translatable("eyelocator.cmd.status_channel",
-                channel.displayName, locator.sampleCount(), ForgeRegistry.size(channel.id),
+                ClientSetup.channelName(channel.id), locator.sampleCount(), ForgeRegistry.size(channel.id),
                 Component.translatable(locator.hasEstimate()
                         ? "eyelocator.cmd.status_located" : "eyelocator.cmd.status_unlocated")));
         if (ChannelManager.all().size() > 1) {
@@ -189,7 +189,7 @@ public final class ForgeCommands {
         }
         LocatorChannel channel = ChannelManager.getOrCreate(id);
         ChannelManager.setActive(channel);
-        feedback(source, Component.translatable("eyelocator.cmd.track_added", id, channel.displayName));
+        feedback(source, Component.translatable("eyelocator.cmd.track_added", id, ClientSetup.channelName(channel.id)));
         return 1;
     }
 
@@ -201,7 +201,7 @@ public final class ForgeCommands {
         LocatorChannel channel = ChannelManager.getOrCreate(id);
         ChannelManager.setActive(channel);
         ClientSetup.saveState();
-        feedback(source, Component.translatable("eyelocator.cmd.channel_switched", channel.displayName, channel.id));
+        feedback(source, Component.translatable("eyelocator.cmd.channel_switched", ClientSetup.channelName(channel.id), channel.id));
         return 1;
     }
 
@@ -214,7 +214,7 @@ public final class ForgeCommands {
         for (LocatorChannel channel : ChannelManager.all()) {
             feedback(source, Component.translatable("eyelocator.cmd.channel_line",
                     channel == ChannelManager.active() ? "*" : " ",
-                    channel.displayName,
+                    ClientSetup.channelName(channel.id),
                     channel.locator.sampleCount(),
                     ForgeRegistry.size(channel.id),
                     channel.locator.hasEstimate()

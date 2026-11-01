@@ -184,6 +184,29 @@ public final class ClientSetup {
     }
 
     /**
+     * 通道显示名（纯文本）：用户自定义名称 > 内置名称的翻译 > 实体 id 的显示名。
+     * 用于把名字塞进 {@code %s} 占位符。
+     */
+    public static String channelName(String id) {
+        LocatorChannel channel = ChannelManager.byId(id);
+        if (channel == null) {
+            return id == null ? "-" : id;
+        }
+        String key = ChannelManager.displayKey(id);
+        return key == null ? channel.displayName : Component.translatable(key).getString();
+    }
+
+    /** 通道显示名（Component 形式），用于列表/标签。 */
+    public static Component channelText(String id) {
+        LocatorChannel channel = ChannelManager.byId(id);
+        if (channel == null) {
+            return Component.literal(id == null ? "-" : id);
+        }
+        String key = ChannelManager.displayKey(id);
+        return key == null ? Component.literal(channel.displayName) : Component.translatable(key);
+    }
+
+    /**
      * 结束当前的定位并收起 HUD：先把各通道结果归档，再清空当前射线。
      * 不会删除任何已归档的目标。
      */
@@ -250,7 +273,7 @@ public final class ClientSetup {
 
         double distance = Math.hypot(x - mc.player.getX(), z - mc.player.getZ());
         mc.player.displayClientMessage(Component.translatable("eyelocator.chat.locked",
-                channel.displayName, Fmt.number(x), Fmt.number(z),
+                channelName(channel.id), Fmt.number(x), Fmt.number(z),
                 Math.round(distance), Math.round(channel.locator.confidence() * 100)), false);
     }
 

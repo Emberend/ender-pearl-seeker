@@ -127,7 +127,8 @@ public final class HudRenderer implements HudRenderCallback {
             key = mix(key, confidence);
             key = mix(key, archived);
             key = mix(key, meters);
-            key = mix(key, channel.displayName.hashCode());
+            // 用通道 id 做键：翻译只在重建面板时解析，避免每帧分配字符串
+            key = mix(key, channel.id.hashCode());
             key = mix(key, color);
 
             if (key != panelKey) {
@@ -137,7 +138,7 @@ public final class HudRenderer implements HudRenderCallback {
                                 locator.sampleCount(), locator.excluded())
                         : Text.translatable("eyelocator.hud.samples", locator.sampleCount());
                 panelLines = new Text[]{
-                        Text.translatable("eyelocator.hud.estimate", channel.displayName,
+                        Text.translatable("eyelocator.hud.estimate", EyeLocatorClient.channelName(channel.id),
                                 Fmt.number(locator.estX()), Fmt.number(locator.estZ())),
                         Text.translatable("eyelocator.hud.distance", meters, samples, confidence),
                         Text.translatable("eyelocator.hud.footer", archived)
