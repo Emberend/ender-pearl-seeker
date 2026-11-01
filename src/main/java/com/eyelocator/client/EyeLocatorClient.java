@@ -1,5 +1,6 @@
 package com.eyelocator.client;
 
+import com.eyelocator.core.BuiltInCompat;
 import com.eyelocator.core.ChannelManager;
 import com.eyelocator.core.Fmt;
 import com.eyelocator.core.LocatorChannel;
@@ -63,6 +64,7 @@ public final class EyeLocatorClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        loadCompat();
         EyeLocatorConfig.load();
         StrongholdRegistry.load();
         loadState();
@@ -86,6 +88,16 @@ public final class EyeLocatorClient implements ClientModInitializer {
         EyeLocatorCommands.register();
 
         LOGGER.info("末影寻珠 已加载：扔末影之眼（或其它模组的同类道具）即可自动记录方位。");
+    }
+
+    /**
+     * 读取 {@code config/eyelocator_compat.json}（哪些实体算定位道具）。
+     * 文件不存在时自动生成内置模板；具体规则见 {@link BuiltInCompat}。
+     */
+    public static void loadCompat() {
+        BuiltInCompat.load(
+                FabricLoader.getInstance().getConfigDir().resolve(BuiltInCompat.FILE_NAME),
+                LOGGER::info, LOGGER::warn);
     }
 
     /** 当前 HUD 展示的通道的定位器。 */

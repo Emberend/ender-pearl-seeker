@@ -32,6 +32,7 @@ public final class ForgeCommands {
                         }))
                 .then(net.minecraft.commands.Commands.literal("reload")
                         .executes(ctx -> {
+                            ClientSetup.loadCompat();
                             ForgeConfig.load();
                             feedback(ctx.getSource(), Component.translatable("eyelocator.cmd.reloaded"));
                             return 1;

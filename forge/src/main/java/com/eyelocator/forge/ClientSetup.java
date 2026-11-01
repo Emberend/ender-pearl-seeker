@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import com.eyelocator.core.BuiltInCompat;
 import com.eyelocator.core.ChannelManager;
 import com.eyelocator.core.Fmt;
 import com.eyelocator.core.LocatorChannel;
@@ -69,6 +70,7 @@ public final class ClientSetup {
 
     /** 只在客户端调用（由 {@link EyeLocatorForge} 通过 DistExecutor 触发）。 */
     public static void init() {
+        loadCompat();
         ForgeConfig.load();
         ForgeRegistry.load();
         loadState();
@@ -78,6 +80,15 @@ public final class ClientSetup {
 
         EyeLocatorForge.LOGGER.info(
                 "末影寻珠 (Forge) 已加载：扔末影之眼或其它模组的同类道具即可自动记录方位。");
+    }
+
+    /**
+     * 读取 {@code config/eyelocator_compat.json}（哪些实体算定位道具）。
+     * 文件不存在时自动生成内置模板；具体规则见 {@link BuiltInCompat}。
+     */
+    public static void loadCompat() {
+        BuiltInCompat.load(FMLPaths.CONFIGDIR.get().resolve(BuiltInCompat.FILE_NAME),
+                EyeLocatorForge.LOGGER::info, EyeLocatorForge.LOGGER::warn);
     }
 
     private static void registerKeys(RegisterKeyMappingsEvent event) {

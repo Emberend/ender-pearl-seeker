@@ -33,6 +33,7 @@ public final class EyeLocatorCommands {
                 })
                 .then(ClientCommandManager.literal("reload")
                         .executes(ctx -> {
+                            EyeLocatorClient.loadCompat();
                             EyeLocatorConfig.load();
                             feedback(ctx.getSource(), Text.translatable("eyelocator.cmd.reloaded"));
                             return 1;

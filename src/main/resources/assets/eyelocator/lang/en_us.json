@@ -38,7 +38,7 @@
 	"eyelocator.chat.deduped": "Merged %s nearby targets",
 	"eyelocator.chat.ray_failed": "That %s didn't fly far enough — no bearing recorded (blocked?)",
 
-	"eyelocator.cmd.reloaded": "Config reloaded",
+	"eyelocator.cmd.reloaded": "Config and compat table reloaded",
 	"eyelocator.cmd.reset_done": "Ended the current search and archived the result",
 	"eyelocator.cmd.cleared": "Cleared the current search and all archived targets",
 	"eyelocator.cmd.style_only": "Style must be diamond, circle or cross",
