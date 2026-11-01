@@ -18,7 +18,8 @@ import com.google.gson.GsonBuilder;
  * 进行中的定位状态（还没归档的方位射线）的磁盘快照。
  *
  * <p>每个通道分开存，退出游戏后重新进入仍能接着投，不用从头开始。
- * 只保存射线本身和维度，不保存任何 Minecraft 类型，因此 Fabric 与 Forge 共用。</p>
+ * 同时记录存档/服务器标识与维度，换世界或换维度后的残留会被丢弃。
+ * 只保存射线本身和这两个字符串，不保存任何 Minecraft 类型，因此 Fabric 与 Forge 共用。</p>
  */
 public final class LocatorState {
 
@@ -26,6 +27,12 @@ public final class LocatorState {
 
     /** 记录这些射线时所在的维度。换维度后旧数据没有意义。 */
     public String dimension;
+
+    /**
+     * 记录这些射线时所在的存档/服务器标识（单人取存档名，多人取服务器地址）。
+     * 旧版本文件没有这个字段，读取时按 {@code null} 处理（不做世界校验）。
+     */
+    public String world;
 
     /** 上次 HUD 显示的通道。 */
     public String activeChannel;
@@ -37,9 +44,10 @@ public final class LocatorState {
     }
 
     /** 从当前内存状态生成快照。 */
-    public static LocatorState capture(String dimension) {
+    public static LocatorState capture(String dimension, String world) {
         LocatorState state = new LocatorState();
         state.dimension = dimension;
+        state.world = world;
         state.activeChannel = ChannelManager.active().id;
         for (LocatorChannel channel : ChannelManager.all()) {
             List<StrongholdLocator.Ray> rays = channel.locator.rays();
@@ -107,18 +115,26 @@ public final class LocatorState {
     }
 
     /**
-     * 只保留指定维度的数据；维度不同说明是上一个世界的残留，直接丢弃。
-     * 返回是否保留了数据。
+     * 只保留指定存档/维度下的数据；不一致说明是上一个世界的残留，直接丢弃。
+     *
+     * <p>旧版本文件没有 {@link #world} 字段，此时只比对维度（保持向后兼容）。</p>
+     *
+     * @return 是否保留了数据
      */
-    public boolean keepOnly(String currentDimension) {
-        if (dimension == null || currentDimension == null) {
-            return true;
-        }
-        if (dimension.equals(currentDimension)) {
+    public boolean keepOnly(String currentDimension, String currentWorld) {
+        boolean sameWorld = this.world == null || currentWorld == null || this.world.equals(currentWorld);
+        boolean sameDimension = this.dimension == null || currentDimension == null
+                || this.dimension.equals(currentDimension);
+        if (sameWorld && sameDimension) {
+            if (currentWorld != null) {
+                this.world = currentWorld;
+            }
             return true;
         }
         channels = new LinkedHashMap<>();
-        dimension = currentDimension;
+        activeChannel = null;
+        this.dimension = currentDimension;
+        this.world = currentWorld;
         return false;
     }
 
@@ -137,6 +153,7 @@ public final class LocatorState {
     public LocatorState copy() {
         LocatorState copy = new LocatorState();
         copy.dimension = dimension;
+        copy.world = world;
         copy.activeChannel = activeChannel;
         for (Map.Entry<String, List<StrongholdLocator.Ray>> entry : channels.entrySet()) {
             copy.channels.put(entry.getKey(), new ArrayList<>(entry.getValue()));

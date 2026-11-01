@@ -36,6 +36,7 @@
 	"eyelocator.chat.changed": "Different target detected — archived the previous one, restarting",
 	"eyelocator.chat.locked": "%s ≈ X:%s Z:%s (%s blocks away, %s%% confidence)",
 	"eyelocator.chat.deduped": "Merged %s nearby targets",
+	"eyelocator.chat.ray_failed": "That %s didn't fly far enough — no bearing recorded (blocked?)",
 
 	"eyelocator.cmd.reloaded": "Config reloaded",
 	"eyelocator.cmd.reset_done": "Ended the current search and archived the result",

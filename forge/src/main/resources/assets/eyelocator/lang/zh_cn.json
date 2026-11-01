@@ -36,6 +36,7 @@
 	"eyelocator.chat.changed": "检测到不同的目标：已归档上一个，重新定位中",
 	"eyelocator.chat.locked": "%s ≈ X:%s Z:%s（距离 %s 格，置信度 %s%%）",
 	"eyelocator.chat.deduped": "已合并 %s 个相近目标",
+	"eyelocator.chat.ray_failed": "这只%s没飞出足够距离，本次没有记录方位（可能被方块挡住了）",
 
 	"eyelocator.cmd.reloaded": "配置已重新加载",
 	"eyelocator.cmd.reset_done": "已结束当前定位并归档结果",

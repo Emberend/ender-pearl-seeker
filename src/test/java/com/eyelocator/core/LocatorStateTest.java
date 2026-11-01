@@ -42,12 +42,13 @@ class LocatorStateTest {
         other.locator.addRay(ray(0, 0, 1, 0));
 
         Path file = tempDir.resolve("state.json");
-        LocatorState.capture("minecraft:overworld").write(file);
+        LocatorState.capture("minecraft:overworld", "sp:test-world").write(file);
         assertTrue(Files.exists(file));
 
         LocatorState loaded = LocatorState.read(file);
         assertNotNull(loaded);
         assertEquals("minecraft:overworld", loaded.dimension);
+        assertEquals("sp:test-world", loaded.world);
         assertEquals("minecraft:eye_of_ender", loaded.activeChannel);
         assertEquals(3, loaded.rayCount());
 
@@ -65,7 +66,7 @@ class LocatorStateTest {
         Path file = tempDir.resolve("state.json");
         Files.writeString(file, "{}");
 
-        LocatorState.capture("minecraft:overworld").write(file);
+        LocatorState.capture("minecraft:overworld", "sp:test-world").write(file);
         assertFalse(Files.exists(file));
     }
 
@@ -78,9 +79,10 @@ class LocatorStateTest {
     void keepOnlyDropsOtherDimension() {
         LocatorState state = new LocatorState();
         state.dimension = "minecraft:the_nether";
+        state.world = "sp:test-world";
         state.channels.put("minecraft:eye_of_ender", java.util.List.of(ray(0, 0, 1, 0)));
 
-        assertFalse(state.keepOnly("minecraft:overworld"));
+        assertFalse(state.keepOnly("minecraft:overworld", "sp:test-world"));
         assertEquals(0, state.rayCount());
         assertEquals("minecraft:overworld", state.dimension);
     }
@@ -89,10 +91,38 @@ class LocatorStateTest {
     void keepOnlyKeepsSameDimension() {
         LocatorState state = new LocatorState();
         state.dimension = "minecraft:overworld";
+        state.world = "sp:test-world";
         state.channels.put("minecraft:eye_of_ender", java.util.List.of(ray(0, 0, 1, 0)));
 
-        assertTrue(state.keepOnly("minecraft:overworld"));
+        assertTrue(state.keepOnly("minecraft:overworld", "sp:test-world"));
         assertEquals(1, state.rayCount());
+    }
+
+    /** 同维度但换了存档/服务器：旧射线必须丢弃，不能带到新世界。 */
+    @Test
+    void keepOnlyDropsOtherWorldInSameDimension() {
+        LocatorState state = new LocatorState();
+        state.dimension = "minecraft:overworld";
+        state.world = "sp:old-world";
+        state.activeChannel = "minecraft:eye_of_ender";
+        state.channels.put("minecraft:eye_of_ender", java.util.List.of(ray(0, 0, 1, 0)));
+
+        assertFalse(state.keepOnly("minecraft:overworld", "sp:new-world"));
+        assertEquals(0, state.rayCount());
+        assertEquals("sp:new-world", state.world);
+        assertNull(state.activeChannel);
+    }
+
+    /** 旧版本文件没有 world 字段，只按维度判断，不能把用户的射线误删。 */
+    @Test
+    void legacyFileWithoutWorldOnlyComparesDimension() {
+        LocatorState state = new LocatorState();
+        state.dimension = "minecraft:overworld";
+        state.channels.put("minecraft:eye_of_ender", java.util.List.of(ray(0, 0, 1, 0)));
+
+        assertTrue(state.keepOnly("minecraft:overworld", "sp:any-world"));
+        assertEquals(1, state.rayCount());
+        assertEquals("sp:any-world", state.world);
     }
 
     @Test

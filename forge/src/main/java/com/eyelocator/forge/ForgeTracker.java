@@ -65,9 +65,10 @@ public final class ForgeTracker {
             Track track = entry.getValue();
             Entity entity = level.getEntity(entry.getKey());
 
-            // 实体消失，或 id 被别的实体复用（类型对不上）
+            // 实体消失，或 id 被别的实体复用（类型对不上）：这次没记录到方位
             if (entity == null || entity.isRemoved() || entity.getType() != track.type) {
                 it.remove();
+                ClientSetup.onRayFailed(track.channel);
                 continue;
             }
 
@@ -80,7 +81,9 @@ public final class ForgeTracker {
                         new StrongholdLocator.Ray(track.x, track.z, dx / dist, dz / dist));
                 it.remove();
             } else if (++track.age > MAX_AGE_TICKS) {
+                // 一直没飞出足够距离：多半被方块挡住了
                 it.remove();
+                ClientSetup.onRayFailed(track.channel);
             }
         }
     }

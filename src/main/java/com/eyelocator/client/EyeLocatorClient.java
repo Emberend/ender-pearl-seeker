@@ -17,9 +17,11 @@ import net.minecraft.client.util.InputUtil;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.registry.Registries;
+import net.minecraft.server.integrated.IntegratedServer;
 import net.minecraft.text.Text;
 
 import java.io.IOException;
+import java.net.SocketAddress;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
@@ -43,10 +45,18 @@ public final class EyeLocatorClient implements ClientModInitializer {
     private static KeyBinding clearKey;
     private static KeyBinding menuKey;
     private static String currentDimension;
+    /** 当前存档/服务器标识，和维度一起决定残留射线是否还适用。 */
+    private static String currentWorld;
 
-    /** 从磁盘恢复的射线所属维度，用于第一次进入世界时校验。 */
-    private static String restoredDimension;
+    /** 从磁盘恢复的快照，第一次进入世界时用真实的世界/维度校验一次。 */
+    private static LocatorState restoredState;
     private static boolean stateReconciled;
+
+    /** 上一次提示"没记录到方位"的时间，避免连续投掷时刷屏。 */
+    private static long lastRayWarnMillis;
+
+    /** 单人/多人信息都还拿不到时的占位符；此时不做世界校验，避免误删残留射线。 */
+    private static final String UNKNOWN_WORLD = "unknown";
 
     /** 每个通道上次播报过的坐标，避免同一条方位重复刷屏。 */
     private static final Map<String, double[]> LAST_NOTIFIED = new HashMap<>();
@@ -140,11 +150,17 @@ public final class EyeLocatorClient implements ClientModInitializer {
 
     private static void onClientTick(MinecraftClient client) {
         if (client.world == null || client.player == null) {
+            // 离开世界时丢弃追踪中的实体，避免下次进入时 id 复用过早触发提示
+            EyeTracker.clear();
             return;
         }
 
         String dimension = client.world.getRegistryKey().getValue().toString();
-        if (currentDimension != null && !currentDimension.equals(dimension)) {
+        String worldKey = worldKey(client);
+        boolean sameDimension = currentDimension == null || currentDimension.equals(dimension);
+        boolean sameWorld = currentWorld == null || currentWorld.equals(worldKey)
+                || UNKNOWN_WORLD.equals(worldKey) || UNKNOWN_WORLD.equals(currentWorld);
+        if (!sameDimension || !sameWorld) {
             // 注意：此时 currentDimension 还是旧维度，归档要写到旧维度
             archiveAllChannels(currentDimension);
             ChannelManager.resetAllRays();
@@ -153,14 +169,21 @@ public final class EyeLocatorClient implements ClientModInitializer {
             saveState();
         }
         currentDimension = dimension;
+        currentWorld = worldKey;
 
-        // 第一次拿到维度时校验磁盘里的残留射线是不是同一个世界的
-        if (!stateReconciled) {
+        // 第一次拿到世界/维度时校验磁盘里的残留射线是不是同一个地方的
+        if (!stateReconciled && !UNKNOWN_WORLD.equals(worldKey)) {
             stateReconciled = true;
-            if (restoredDimension != null && !restoredDimension.equals(dimension)) {
-                ChannelManager.resetAllRays();
-                saveState();
-                LOGGER.info("丢弃上一个维度的未完成定位（{}）", restoredDimension);
+            if (restoredState != null) {
+                String oldWorld = restoredState.world;
+                String oldDimension = restoredState.dimension;
+                boolean kept = restoredState.keepOnly(dimension, worldKey);
+                restoredState = null;
+                if (!kept) {
+                    ChannelManager.resetAllRays();
+                    saveState();
+                    LOGGER.info("丢弃其它世界/维度的未完成定位（{} / {}）", oldWorld, oldDimension);
+                }
             }
         }
 
@@ -265,7 +288,7 @@ public final class EyeLocatorClient implements ClientModInitializer {
             LocatorState state = LocatorState.read(STATE_PATH);
             if (state != null) {
                 state.apply();
-                restoredDimension = state.dimension;
+                restoredState = state;
             }
         } catch (IOException e) {
             LOGGER.warn("读取未完成定位失败: {}", e.getMessage());
@@ -275,10 +298,49 @@ public final class EyeLocatorClient implements ClientModInitializer {
     /** 把当前所有射线写盘；没有射线时会删除文件。 */
     public static void saveState() {
         try {
-            LocatorState.capture(currentDimension).write(STATE_PATH);
+            LocatorState.capture(currentDimension, currentWorld).write(STATE_PATH);
         } catch (IOException e) {
             LOGGER.warn("保存未完成定位失败: {}", e.getMessage());
         }
+    }
+
+    /**
+     * 当前存档/服务器的稳定标识：单人用存档名，多人用服务器地址。
+     * 用于把未完成定位限制在同一个世界里，避免同维度换世界后沿用旧射线。
+     */
+    private static String worldKey(MinecraftClient client) {
+        IntegratedServer server = client.getServer();
+        if (server != null) {
+            String name = server.getSaveProperties().getLevelName();
+            if (name != null && !name.isEmpty()) {
+                return "sp:" + name;
+            }
+        }
+        if (client.getNetworkHandler() != null) {
+            SocketAddress address = client.getNetworkHandler().getConnection().getAddress();
+            if (address != null) {
+                String text = address.toString();
+                if (!text.isEmpty()) {
+                    return "mp:" + text;
+                }
+            }
+        }
+        return UNKNOWN_WORLD;
+    }
+
+    /** 投掷物没飞出足够距离就消失了：提示这次没有记录到方位（节流，避免刷屏）。 */
+    public static void onRayFailed(String channelId) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastRayWarnMillis < 4000L) {
+            return;
+        }
+        lastRayWarnMillis = now;
+        client.player.sendMessage(
+                Text.translatable("eyelocator.chat.ray_failed", channelName(channelId)), true);
     }
 
     private static void notifyPlayer(Text message) {

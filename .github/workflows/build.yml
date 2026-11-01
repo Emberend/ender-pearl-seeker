@@ -141,6 +141,13 @@ jobs:
           if gh release view "${GITHUB_REF_NAME}" -R "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
             gh release upload "${GITHUB_REF_NAME}" dist/*.jar -R "${GITHUB_REPOSITORY}" --clobber
           else
-            gh release create "${GITHUB_REF_NAME}" dist/*.jar -R "${GITHUB_REPOSITORY}" \
-              --title "${GITHUB_REF_NAME}" --generate-notes
+            # 有对应版本的发布说明就用它，否则自动生成
+            NOTES="docs/release-${GITHUB_REF_NAME#v}.md"
+            if [ -f "$NOTES" ]; then
+              gh release create "${GITHUB_REF_NAME}" dist/*.jar -R "${GITHUB_REPOSITORY}" \
+                --title "${GITHUB_REF_NAME}" --notes-file "$NOTES"
+            else
+              gh release create "${GITHUB_REF_NAME}" dist/*.jar -R "${GITHUB_REPOSITORY}" \
+                --title "${GITHUB_REF_NAME}" --generate-notes
+            fi
           fi
