@@ -115,6 +115,7 @@
 	"eyelocator.screen.archive.add": "Archive current",
 	"eyelocator.screen.archive.add.tooltip": "Add the current result to the archive",
 	"eyelocator.screen.archive.dedupe": "Merge",
+	"eyelocator.screen.archive.dedupe.tooltip": "Only merges records of the same target type (channel)",
 	"eyelocator.screen.archive.clear": "Clear",
 	"eyelocator.screen.archive.clear.tooltip": "Delete all archived targets (cannot be undone)",
 	"eyelocator.screen.archive.empty": "No archived targets yet",

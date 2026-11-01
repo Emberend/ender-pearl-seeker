@@ -153,13 +153,14 @@ public final class EyeLocatorScreen extends Screen {
         x += addW + gap;
 
         addDrawableChild(ButtonWidget.builder(Text.translatable("eyelocator.screen.archive.dedupe"), b -> {
-            int merged = StrongholdRegistry.dedupe(EyeLocatorConfig.get().dedupeDistance,
-                    EyeLocatorClient.activeChannelId());
+            int merged = StrongholdRegistry.dedupe(EyeLocatorConfig.get().dedupeDistance);
             page = 0;
             if (this.client != null && this.client.player != null) {
                 this.client.player.sendMessage(Text.translatable("eyelocator.chat.deduped", merged), true);
             }
-        }).dimensions(x, y, dedupeW, h).build());
+        }).dimensions(x, y, dedupeW, h)
+                .tooltip(Tooltip.of(Text.translatable("eyelocator.screen.archive.dedupe.tooltip")))
+                .build());
         x += dedupeW + gap;
 
         addDrawableChild(ButtonWidget.builder(Text.translatable("eyelocator.screen.archive.clear"), b -> {

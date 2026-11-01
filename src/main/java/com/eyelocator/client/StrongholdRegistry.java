@@ -1,5 +1,6 @@
 package com.eyelocator.client;
 
+import com.eyelocator.core.ArchiveDedupe;
 import com.eyelocator.core.ChannelManager;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -18,7 +19,7 @@ import net.fabricmc.loader.api.FabricLoader;
  */
 public final class StrongholdRegistry {
 
-    public static final class Entry {
+    public static final class Entry implements ArchiveDedupe.Item {
         public double x;
         public double z;
         public double confidence;
@@ -39,6 +40,50 @@ public final class StrongholdRegistry {
             this.hits = 1;
             this.dimension = dimension;
             this.channel = channel;
+        }
+
+        @Override
+        public double x() {
+            return x;
+        }
+
+        @Override
+        public double z() {
+            return z;
+        }
+
+        @Override
+        public double confidence() {
+            return confidence;
+        }
+
+        @Override
+        public int hits() {
+            return hits;
+        }
+
+        @Override
+        public String dimension() {
+            return dimension;
+        }
+
+        @Override
+        public String channel() {
+            return channel;
+        }
+
+        @Override
+        public String name() {
+            return name;
+        }
+
+        @Override
+        public void update(double x, double z, double confidence, int hits, String name) {
+            this.x = x;
+            this.z = z;
+            this.confidence = confidence;
+            this.hits = hits;
+            this.name = name;
         }
     }
 
@@ -116,34 +161,13 @@ public final class StrongholdRegistry {
     }
 
     /**
-     * 合并同通道、同维度内距离小于 {@code threshold} 的归档，返回被合并掉的条目数。
-     * {@code channel} 为 null 时对所有通道生效。
+     * 合并同维度、同通道内距离小于 {@code threshold} 的归档，返回被合并掉的条目数。
+     *
+     * <p>只合并同一通道：不同通道代表不同结构（末地要塞、灾变地牢等），坐标即使重合也各留一条。
+     * 扫描全部通道，结果与当前激活的是哪个通道无关。</p>
      */
-    public static int dedupe(double threshold, String channel) {
-        int removed = 0;
-        for (int i = 0; i < ENTRIES.size(); i++) {
-            Entry a = ENTRIES.get(i);
-            for (int j = i + 1; j < ENTRIES.size(); ) {
-                Entry b = ENTRIES.get(j);
-                if (a.dimension.equals(b.dimension)
-                        && (channel == null || channel.equals(a.channel))
-                        && Math.hypot(a.x - b.x, a.z - b.z) < threshold) {
-                    double w1 = Math.max(0.05, a.confidence);
-                    double w2 = Math.max(0.05, b.confidence);
-                    a.x = (a.x * w1 + b.x * w2) / (w1 + w2);
-                    a.z = (a.z * w1 + b.z * w2) / (w1 + w2);
-                    a.confidence = Math.max(a.confidence, b.confidence);
-                    a.hits += b.hits;
-                    if (isEmpty(a.name) && !isEmpty(b.name)) {
-                        a.name = b.name;
-                    }
-                    ENTRIES.remove(j);
-                    removed++;
-                } else {
-                    j++;
-                }
-            }
-        }
+    public static int dedupe(double threshold) {
+        int removed = ArchiveDedupe.run(ENTRIES, threshold);
         if (removed > 0) {
             save();
         }

@@ -115,6 +115,7 @@
 	"eyelocator.screen.archive.add": "归档当前坐标",
 	"eyelocator.screen.archive.add.tooltip": "把当前定位结果加入归档",
 	"eyelocator.screen.archive.dedupe": "去重",
+	"eyelocator.screen.archive.dedupe.tooltip": "只合并同类目标（同一通道）里距离过近的记录",
 	"eyelocator.screen.archive.clear": "清空",
 	"eyelocator.screen.archive.clear.tooltip": "删除全部已归档目标（不可撤销）",
 	"eyelocator.screen.archive.empty": "还没有归档记录",

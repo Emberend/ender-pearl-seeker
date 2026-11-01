@@ -201,14 +201,15 @@ public final class ForgeEyeLocatorScreen extends Screen {
         x += addW + gap;
 
         this.addRenderableWidget(Button.builder(Component.translatable("eyelocator.screen.archive.dedupe"), b -> {
-            int merged = ForgeRegistry.dedupe(ForgeConfig.get().dedupeDistance,
-                    ClientSetup.activeChannelId());
+            int merged = ForgeRegistry.dedupe(ForgeConfig.get().dedupeDistance);
             this.page = 0;
             if (this.minecraft != null && this.minecraft.player != null) {
                 this.minecraft.player.displayClientMessage(
                         Component.translatable("eyelocator.chat.deduped", merged), true);
             }
-        }).bounds(x, y, dedupeW, ARCHIVE_BTN_H).build());
+        }).bounds(x, y, dedupeW, ARCHIVE_BTN_H)
+                .tooltip(Tooltip.create(Component.translatable("eyelocator.screen.archive.dedupe.tooltip")))
+                .build());
         x += dedupeW + gap;
 
         this.addRenderableWidget(Button.builder(Component.translatable("eyelocator.screen.archive.clear"), b -> {
