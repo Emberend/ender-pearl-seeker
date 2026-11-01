@@ -3,7 +3,7 @@
 	"id": "eyelocator",
 	"version": "${version}",
 	"name": "末影寻珠",
-	"description": "用末影之眼（及同类定位道具）三角定位目标：记录每次投掷的方位角，显示坐标、距离与路标。纯客户端，联机可用。\n\n个人项目，大部分代码由 AI 辅助编写（vibe coding）。渲染与各版本兼容性均未实机验证，Forge 版从未启动测试过，请按「能跑就好」的心态使用。",
+	"description": "用末影之眼（及同类定位道具）三角定位目标：记录每次投掷的方位角，显示坐标、距离与路标。纯客户端，联机可用。个人项目，大部分代码由 AI 辅助编写（vibe coding）。渲染与各版本兼容性均未实机验证，Forge 版从未启动测试过，请按「能跑就好」的心态使用。",
 	"authors": [
 		"Emberend"
 	],
@@ -18,6 +18,9 @@
 	"entrypoints": {
 		"client": [
 			"com.eyelocator.client.EyeLocatorClient"
+		],
+		"modmenu": [
+			"com.eyelocator.client.EyeLocatorModMenu"
 		]
 	},
 	"depends": {
@@ -25,5 +28,8 @@
 		"minecraft": "${minecraft_dependency}",
 		"java": ">=${java_version}",
 		"fabric-api": "*"
+	},
+	"recommends": {
+		"modmenu": "*"
 	}
 }

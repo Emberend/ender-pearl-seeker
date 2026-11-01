@@ -13,7 +13,7 @@
 >
 > - **渲染从未实机验证**。开发机没有图形环境，HUD、路标、管理界面只做到"编译通过 + 逻辑自洽"，实际观感、不同分辨率与 GUI 缩放下的表现、和其它 HUD 模组的遮挡关系，都没有逐项检查过。
 > - **版本兼容只等于"能编译"**。每个 Minecraft 版本都是编译验证，没有逐个进游戏跑过。**Forge 版（1.20.1）一次都没启动过**，第一次装上大概率需要调 bug。
-> - **几乎没有测试**。没有单元测试，验证方式是构建 + 人工推理。维度切换、极端坐标、多通道混投、实体 id 复用这些边界情况，很可能还有没想到的问题。
+> - **测试只覆盖算法层**。共享的几何/投票/持久化逻辑有 JUnit 单元测试（会随构建自动跑），但渲染、界面、事件注册、与具体 Minecraft 版本的交互依然没有自动化测试。
 > - **代码质量参差**。Fabric 版、共享算法层、Forge 版是在不同时间段写的，风格不完全统一，有些逻辑存在重复。
 > - **设计按个人习惯来**。配置项、命令命名、界面布局都是我自己用着顺手的样子，不一定适合所有人。
 > - **其它模组的兼容靠推测**。已内置的几个 Goety 道具是读源码确认的，但没有实际联调；Cataclysm 的实体 id 至今没拿到。其它没见过的模组只能靠猜关键词或手动识别。
@@ -26,6 +26,8 @@
   - 以下载页的 4 个区间包为准，一个包覆盖整段（组内字节码一致）
   - **最低支持 1.20.1**：1.19 及更早版本的渲染 / 界面 API 差异过大，已放弃兼容
   - 1.21.9+ 暂未支持（渲染/按键 API 改动较大）
+- 需要 Fabric Loader 0.15+ 与 Fabric API
+- **ModMenu 为可选前置**：装了以后可以直接在模组列表里点「设置」打开管理界面；没装不影响任何功能
 - 依赖 [Fabric API](https://modrinth.com/mod/fabric-api)
 
 **Forge 版**
@@ -41,10 +43,13 @@
 - **自动三角定位**：扔出的末影之眼会被追踪，自动提取它飞行的方向，多条方向线求交点即要塞位置。
 - **兼容其它模组的同类道具**：理论上，"使用后飞向某个结构"的道具都能用同一套算法定位；支持自动识别、白名单与手动学习，不同道具指向不同结构时各自独立计算（见下）。实际只在少数几个已知道具上验证过。
 - **最佳下一投掷点**：只扔了第一次时，直接算出第二次该站的"最佳点位"（横向错开约 400 格，并朝要塞方向偏转约 30°，降低跨到相邻要塞范围的概率），让两条方位线夹角足够大、交点稳定，**通常两次就能锁定**，省眼睛/珍珠；若你已经横向错开够远，会提示原地再扔即可。
-- **HUD 信息**：左上角显示估计坐标、水平距离、有效样本数（含剔除）、置信度和已归档数量。
+- **HUD 信息**：左上角显示估计坐标、水平距离、有效样本数（含剔除）、置信度和已归档数量；文本与颜色按数值缓存，静止时每帧不重新拼接字符串。
 - **方向路标**：把目标位置投影到屏幕上，用手绘的极简路标标记（抗锯齿、加粗描边，支持菱形/圆环/十字三种样式）；跟随视角实时移动，超出视野贴到屏幕边缘，并显示距离。
 - **异常样本过滤**：样本 ≥3 条时自动剔除残差过大的坏射线，避免一次手滑污染结果。
 - **多要塞管理**：自动归档已找到的要塞并持久化；当你移动到新区域、眼睛开始指向另一个要塞时自动识别并保留旧记录。按 `I` 打开管理界面可查看/删除归档、调整所有设置。
+- **未完成定位也会存盘**：还没算出结果的方位射线写入 `config/eyelocator_state.json`，退出游戏重进可以接着投；换维度会自动丢弃上一个维度的残留。
+- **聊天播报**：锁定目标时把坐标发到聊天栏，方便回看或复制给朋友（可在设置里关闭）。
+- **中英双语**：HUD、管理界面、命令提示都走语言文件，跟随游戏语言切换。
 - **自管理**：切换维度自动归档并重置；按 `K` 结束当前定位并收起 HUD（**归档保留**）。
 
 ## 使用方法
@@ -124,18 +129,18 @@
 
 ## 管理界面
 
-按 `I`（可在“按键设置”里改）或输入 `/eyelocator gui` 打开。两个标签页：
+按 `I`（可在“按键设置”里改）、`/eyelocator gui`，或装了 ModMenu 时在模组列表里点「设置」打开。两个标签页：
 
-- **设置**：只保留看得懂的几项——路标样式、路标大小、显示距离、显示旧要塞标记、找新要塞时隐藏旧标记、恢复默认（每项都有悬停说明）。
+- **设置**：两列布局，保留看得懂的几项——路标样式、大小、描边、显示距离、显示标签、显示面板、显示旧目标标记、找新目标时隐藏旧标记、自动识别道具、**聊天播报坐标**、恢复默认（每项都有悬停说明）。
 - **归档**：
-  - 「归档当前坐标」：把当前算出的要塞坐标保存进归档，并弹窗命名；
+  - 「归档当前坐标」：把当前算出的坐标保存进归档，并弹窗命名；
   - 点击任意条目即可**重命名**；
   - 每条右侧 `×` 删除；「去重」合并同维度距离过近的条目；「清空归档」清空；
   - 支持分页。自定义名称会显示在对应路标上。
 
-更细的参数（描边粗细、投掷基线、异常阈值、换要塞判定、颜色等）不放进界面，编辑 `config/eyelocator.json` 即可。
+更细的参数（投掷基线、异常阈值、换目标判定、颜色等）不放进界面，编辑 `config/eyelocator.json` 即可。
 
-归档保存在 `config/eyelocator_strongholds.json`，重开游戏仍在。
+归档保存在 `config/eyelocator_strongholds.json`，未完成的定位射线保存在 `config/eyelocator_state.json`，重开游戏都还在。
 
 ## 配置
 
@@ -162,7 +167,23 @@
 
 > 上面的命令两个版本都能用；Forge 版同样有 `I` 键管理界面和 `/eyelocator gui`，配置项与 Fabric 版完全一致。
 
-配置文件主要字段：`markerStyle`、`markerScale`、`markerThickness`、`colorStronghold`、`colorAdvice`、`colorArchived`、`showDistance`、`showLabels`、`showPanel`、`baseline`、`outlierResidual`、`detectStrongholdChange`、`changeDistance`、`showArchived`、`hideArchivedWhileSearching`、`dedupeDistance`；兼容相关：`autoDetect`、`autoDetectKeywords`、`trackedEntities`、`channelNames`。
+配置文件主要字段：`markerStyle`、`markerScale`、`markerThickness`、`colorStronghold`、`colorAdvice`、`colorArchived`、`showDistance`、`showLabels`、`showPanel`、`notifyChat`、`baseline`、`outlierResidual`、`detectStrongholdChange`、`changeDistance`、`showArchived`、`hideArchivedWhileSearching`、`dedupeDistance`；兼容相关：`autoDetect`、`autoDetectKeywords`、`trackedEntities`、`channelNames`。
+
+数据文件：
+
+- `config/eyelocator_strongholds.json`：已归档目标
+- `config/eyelocator_state.json`：未完成定位的方位射线（没有射线时自动删除）
+
+### 语言 / 翻译
+
+HUD、界面、命令文案都使用翻译键，语言文件位于：
+
+```
+src/main/resources/assets/eyelocator/lang/{zh_cn,en_us}.json
+forge/src/main/resources/assets/eyelocator/lang/{zh_cn,en_us}.json
+```
+
+四份文件的键必须一致。想加其它语言时，复制一份 `en_us.json` 改名为对应语言代码并翻译即可（游戏会自动匹配）。
 
 ## 构建
 
@@ -175,6 +196,19 @@ GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew build
 ```
 
 产物：`build/libs/eyelocator-<version>.jar`（外加 `-sources.jar`）。
+
+### 单元测试
+
+共享算法层（求交投票、最佳投掷点、状态快照）有 JUnit 5 测试，两个加载器的 `build` 都会自动执行，CI 同样会跑：
+
+```bash
+GRADLE_USER_HOME="$PWD/.gradle-home" ./gradlew test
+
+cd forge
+JAVA_HOME=/usr/lib/jvm/java-17-openjdk GRADLE_USER_HOME="$PWD/../.gradle-home" ./gradlew test
+```
+
+覆盖范围仅限纯算法，渲染/界面/事件注册不在其中。
 
 ### 清理构建缓存
 
@@ -243,21 +277,30 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 
 ```
 common/src/main/java/com/eyelocator/core/   # 两个加载器共用
-├── StrongholdLocator.java   # 最小二乘求交 + 离群剔除，坐标/残差/置信度
+├── StrongholdLocator.java   # 射线对投票求交 + 离群剔除，坐标/残差/置信度
 ├── NextThrowAdvisor.java    # 首次投掷后计算最佳下一投掷点
 ├── LocatorChannel.java      # 一个定位来源（实体 id）及其独立射线集合
 ├── ChannelManager.java      # 管理所有通道，记录最近使用的通道
+├── LocatorState.java        # 未完成定位的磁盘快照（射线 + 维度）
+├── Fmt.java                 # 跨加载器统一的坐标格式化
 └── BuiltInCompat.java       # 已知模组定位道具的内置 id -> 显示名映射
 
 src/main/java/com/eyelocator/client/        # Fabric 适配层
-├── EyeLocatorClient.java    # 客户端入口：事件、命令、归档/变更检测
+├── EyeLocatorClient.java    # 客户端入口：事件、命令、归档/变更检测、状态持久化
 ├── EyeLocatorCommands.java  # /eyelocator 客户端命令
 ├── EyeLocatorScreen.java    # 管理界面（设置 / 归档）
+├── EyeLocatorModMenu.java   # 可选的 ModMenu 设置入口
 ├── EyeLocatorConfig.java    # JSON 配置读写
 ├── EyeTracker.java          # 追踪定位投射物（任意实体），产出方位射线
 ├── EntityClassifier.java    # 识别哪些实体是"会飞向结构的道具"
 ├── StrongholdRegistry.java  # 按通道隔离的多目标归档（持久化）
+├── TextPromptScreen.java    # 命名/重命名输入框
 └── HudRenderer.java         # 2D HUD：信息面板 + 可配置路标 + 归档标记
+
+src/test/java/com/eyelocator/core/          # 共享算法层单元测试（两个加载器都跑）
+├── StrongholdLocatorTest.java
+├── NextThrowAdvisorTest.java
+└── LocatorStateTest.java
 
 forge/src/main/java/com/eyelocator/forge/    # Forge 1.20.1 适配层
 ├── EyeLocatorForge.java     # 入口（只做 DistExecutor 延迟加载）
@@ -271,8 +314,11 @@ forge/src/main/java/com/eyelocator/forge/    # Forge 1.20.1 适配层
 ├── ForgeTextPromptScreen.java  # 命名/重命名输入框
 └── ForgeHud.java            # HUD 渲染
 
+common/src/main/java/                      # 纯算法层，被两个加载器直接引用
+src/test/java/com/eyelocator/core/          # 算法层单元测试
 scripts/build-all.sh         # 为所有支持版本批量构建
 scripts/clean-caches.sh      # 清理过期的 Gradle / Loom 缓存
+docs/modrinth.md             # Modrinth 上架描述
 ```
 
 ## 已知限制
@@ -284,7 +330,7 @@ scripts/clean-caches.sh      # 清理过期的 Gradle / Loom 缓存
 - 末影之眼只飞向"离你最近"的要塞。当你正好站在两座要塞范围的交界处时，两次投掷可能分别指向不同的要塞；此时反向延长线上的"假交点"会被自动拒绝，HUD 会提示方位矛盾并让你侧移补投，但 Mod 无法提前知道边界在哪，只能事后识别。
 - 只有 2 条方位、且两条都指向前方却能交出一个错误点时，几何上无法分辨（那和"两投同一个要塞"在数学上是同一组约束）。多扔一两次让票数分开即可，界面上不会强行给出一个高置信度答案。
 - 投掷方向被地形挡住、眼睛半路消失、或者飞得不够远，这一条射线就不会被记录，界面上也不会有任何提示。
-- 当前定位（未完成交点的射线）只存在内存里，退出游戏就没了；只有已归档的目标会持久化。
+- 未完成的定位会存到 `config/eyelocator_state.json`，但它只按「维度」区分，不区分存档/服务器。换世界后如果维度相同，会接着用上一次的残留射线，需要手动 `/eyelocator reset` 清掉。
 - 换维度会自动归档并清空当前射线，但**不会**帮你保留"上次在哪个维度找的"这类上下文。
 
 **兼容性**

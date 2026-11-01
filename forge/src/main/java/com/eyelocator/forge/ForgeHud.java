@@ -1,6 +1,7 @@
 package com.eyelocator.forge;
 
 import com.eyelocator.core.ChannelManager;
+import com.eyelocator.core.Fmt;
 import com.eyelocator.core.LocatorChannel;
 import com.eyelocator.core.NextThrowAdvisor;
 import com.eyelocator.core.StrongholdLocator;
@@ -25,6 +26,41 @@ public final class ForgeHud {
     private static final int BASE_RADIUS = 11;
     private static final int MARGIN = 22;
 
+    // 翻译文本是惰性的（渲染时才解析），可以安全地在类加载时创建一次
+    private static final Component TEXT_RECORDED = Component.translatable("eyelocator.hud.recorded");
+    private static final Component TEXT_FOOTER_SIMPLE = Component.translatable("eyelocator.hud.footer_simple");
+    private static final Component TEXT_OPTIMAL1 = Component.translatable("eyelocator.hud.advice.optimal1");
+    private static final Component TEXT_OPTIMAL2 = Component.translatable("eyelocator.hud.advice.optimal2");
+    private static final Component TEXT_CONFLICT = Component.translatable("eyelocator.hud.advice.conflict");
+    private static final Component TEXT_CONFLICT_HERE = Component.translatable("eyelocator.hud.advice.conflict_here");
+    private static final Component TEXT_PARALLEL = Component.translatable("eyelocator.hud.advice.parallel");
+    private static final Component TEXT_LABEL_THROW = Component.translatable("eyelocator.hud.label.throw");
+    private static final Component TEXT_LABEL_RETHROW = Component.translatable("eyelocator.hud.label.rethrow");
+
+    /** 投影结果复用缓冲：HUD 在渲染线程上，单线程调用。 */
+    private static final int[] PROJ = new int[2];
+
+    /** 面板文本缓存：数据没变就不重新拼接字符串。 */
+    private static long panelKey = Long.MIN_VALUE;
+    private static Component[] panelLines;
+    private static int[] panelColors;
+
+    /** 建议态面板缓存（随推荐点/距离变化才重建）。 */
+    private static long adviceKey = Long.MIN_VALUE;
+    private static Component[] adviceLines;
+    private static int[] adviceColors;
+
+    /** 距离文字缓存：米数不变就复用同一个 Component。 */
+    private static int distMeters = Integer.MIN_VALUE;
+    private static Component distText;
+
+    /** 归档名称 -> 文本，避免每帧为同一个名字新建 Component。 */
+    private static final java.util.Map<String, Component> NAME_CACHE = new java.util.HashMap<>();
+
+    /** 当前世界与维度 id 的缓存，避免每帧拼接字符串。 */
+    private static net.minecraft.client.multiplayer.ClientLevel cachedLevel;
+    private static String cachedDimension;
+
     private ForgeHud() {
     }
 
@@ -36,6 +72,11 @@ public final class ForgeHud {
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null || mc.options.hideGui) {
+            if (mc.level == null) {
+                // 退出世界时释放旧世界的强引用
+                cachedLevel = null;
+                cachedDimension = null;
+            }
             return;
         }
 
@@ -49,10 +90,9 @@ public final class ForgeHud {
             NextThrowAdvisor.Advice advice =
                     NextThrowAdvisor.advise(playerPos.x, playerPos.z, locator, config.baseline);
             if (advice != null) {
-                renderAdvice(graphics, mc, advice, channel, config);
+                renderAdvice(graphics, mc, advice, config);
             } else if (locator.sampleCount() > 0) {
-                graphics.drawString(mc.font,
-                        Component.literal("方位已记录，再扔一次即可三角定位"), 6, 6, COLOR_DIM, true);
+                graphics.drawString(mc.font, TEXT_RECORDED, 6, 6, COLOR_DIM, true);
             }
         }
 
@@ -66,91 +106,126 @@ public final class ForgeHud {
                                        LocatorChannel channel, ForgeConfig config) {
         StrongholdLocator locator = channel.locator;
         double distance = Math.hypot(locator.estX() - playerPos.x, locator.estZ() - playerPos.z);
+        int color = config.strongholdColor();
 
         if (config.showPanel) {
-            String sampleInfo = locator.excluded() > 0
-                    ? String.format("样本 %d（剔除 %d）", locator.sampleCount(), locator.excluded())
-                    : String.format("样本 %d", locator.sampleCount());
-            drawPanel(graphics, mc, new String[]{
-                    String.format("%s ≈  X:%.0f  Z:%.0f", channel.displayName,
-                            locator.estX(), locator.estZ()),
-                    String.format("距离 %d 格 · %s · 置信度 %d%%",
-                            Math.round(distance), sampleInfo, Math.round(locator.confidence() * 100)),
-                    String.format("归档 %d 个 · [K] 结束 · [I] 管理界面", ForgeRegistry.size(channel.id))
-            }, new int[]{config.strongholdColor(), COLOR_TEXT, COLOR_DIM});
+            int confidence = (int) Math.round(locator.confidence() * 100);
+            int archived = ForgeRegistry.size();
+            int meters = (int) Math.round(distance);
+            long key = mix(0x51L, Math.round(locator.estX() * 10));
+            key = mix(key, Math.round(locator.estZ() * 10));
+            key = mix(key, locator.sampleCount());
+            key = mix(key, locator.excluded());
+            key = mix(key, confidence);
+            key = mix(key, archived);
+            key = mix(key, meters);
+            key = mix(key, channel.displayName.hashCode());
+            key = mix(key, color);
+
+            if (key != panelKey) {
+                panelKey = key;
+                Component samples = locator.excluded() > 0
+                        ? Component.translatable("eyelocator.hud.samples_excluded",
+                                locator.sampleCount(), locator.excluded())
+                        : Component.translatable("eyelocator.hud.samples", locator.sampleCount());
+                panelLines = new Component[]{
+                        Component.translatable("eyelocator.hud.estimate", channel.displayName,
+                                Fmt.number(locator.estX()), Fmt.number(locator.estZ())),
+                        Component.translatable("eyelocator.hud.distance", meters, samples, confidence),
+                        Component.translatable("eyelocator.hud.footer", archived)
+                };
+                panelColors = new int[]{color, COLOR_TEXT, COLOR_DIM};
+            }
+            drawPanel(graphics, mc, panelLines, panelColors);
         }
 
-        drawWaypoint(graphics, mc, locator.estX(), locator.estZ(), distance,
-                config.strongholdColor(), null, config);
+        drawWaypoint(graphics, mc, locator.estX(), locator.estZ(), distance, color, null, config);
     }
 
     private static void renderAdvice(GuiGraphics graphics, Minecraft mc,
-                                     NextThrowAdvisor.Advice advice, LocatorChannel channel,
-                                     ForgeConfig config) {
+                                     NextThrowAdvisor.Advice advice, ForgeConfig config) {
         if (advice.kind == NextThrowAdvisor.Kind.THROW_HERE) {
             if (config.showPanel) {
-                drawPanel(graphics, mc,
-                        new String[]{"当前站位已与首次方位错开足够远", "直接原地再扔一次即可锁定", "[K] 结束当前定位"},
+                drawPanel(graphics, mc, new Component[]{TEXT_OPTIMAL1, TEXT_OPTIMAL2, TEXT_FOOTER_SIMPLE},
                         new int[]{config.adviceColor(), COLOR_TEXT, COLOR_DIM});
             }
             return;
         }
 
-        String title;
-        String detail;
-        if (advice.kind == NextThrowAdvisor.Kind.RETHROW) {
-            // 两次方位大概指向了不同要塞，继续横移只会更偏
-            title = "两次方位对不上，可能指向不同要塞";
-            detail = advice.travel < 1.0
-                    ? "就在原地再扔一次，会自动剔除矛盾的那条方位"
-                    : String.format("往标记处侧移 %d 格再扔一次，会自动剔除矛盾方位",
-                            Math.round(advice.travel));
-        } else if (advice.kind == NextThrowAdvisor.Kind.MOVE_WIDER) {
-            title = "两条方位夹角太小，交点不可靠";
-            detail = String.format("往标记处横向多走 %d 格再扔一次", Math.round(advice.travel));
-        } else {
-            title = String.format("下一最佳投掷点 ≈  X:%.0f  Z:%.0f", advice.x, advice.z);
-            detail = String.format("距你 %d 格 · 走到后扔一次即可锁定", Math.round(advice.travel));
-        }
-
+        boolean warning = advice.kind != NextThrowAdvisor.Kind.MOVE;
+        int color = warning ? COLOR_WARN : config.adviceColor();
         if (config.showPanel) {
-            drawPanel(graphics, mc, new String[]{title, detail, "[K] 结束当前定位"},
-                    new int[]{advice.kind == NextThrowAdvisor.Kind.MOVE ? config.adviceColor() : COLOR_WARN,
-                            COLOR_TEXT, COLOR_DIM});
+            long key = mix(0xA1L, advice.kind.ordinal());
+            key = mix(key, Math.round(advice.x * 10));
+            key = mix(key, Math.round(advice.z * 10));
+            key = mix(key, Math.round(advice.travel));
+            key = mix(key, color);
+
+            if (key != adviceKey || adviceLines == null) {
+                adviceKey = key;
+                Component title;
+                Component detail;
+                if (advice.kind == NextThrowAdvisor.Kind.RETHROW) {
+                    title = TEXT_CONFLICT;
+                    detail = advice.travel < 1.0
+                            ? TEXT_CONFLICT_HERE
+                            : Component.translatable("eyelocator.hud.advice.conflict_move", Math.round(advice.travel));
+                } else if (advice.kind == NextThrowAdvisor.Kind.MOVE_WIDER) {
+                    title = TEXT_PARALLEL;
+                    detail = Component.translatable("eyelocator.hud.advice.parallel_detail", Math.round(advice.travel));
+                } else {
+                    title = Component.translatable("eyelocator.hud.advice.next",
+                            Fmt.number(advice.x), Fmt.number(advice.z));
+                    detail = Component.translatable("eyelocator.hud.advice.next_detail", Math.round(advice.travel));
+                }
+                adviceLines = new Component[]{title, detail, TEXT_FOOTER_SIMPLE};
+                adviceColors = new int[]{color, COLOR_TEXT, COLOR_DIM};
+            }
+            drawPanel(graphics, mc, adviceLines, adviceColors);
         }
 
-        drawWaypoint(graphics, mc, advice.x, advice.z, advice.travel,
-                advice.kind == NextThrowAdvisor.Kind.MOVE ? config.adviceColor() : COLOR_WARN,
-                advice.kind == NextThrowAdvisor.Kind.RETHROW ? "重投点" : "投掷点", config);
+        Component label = advice.kind == NextThrowAdvisor.Kind.RETHROW
+                ? TEXT_LABEL_RETHROW
+                : TEXT_LABEL_THROW;
+        drawWaypoint(graphics, mc, advice.x, advice.z, advice.travel, color, label, config);
     }
 
     private static void drawWaypoint(GuiGraphics graphics, Minecraft mc,
                                      double targetX, double targetZ, double distance,
-                                     int color, String label, ForgeConfig config) {
+                                     int color, Component label, ForgeConfig config) {
         int radius = Math.max(4, (int) Math.round(BASE_RADIUS * clamp(config.markerScale, 0.4, 3.0)));
-        int[] pos = project(graphics, mc, targetX, targetZ, radius + 6);
-        int cx = pos[0];
-        int cy = pos[1];
+        project(graphics, mc, targetX, targetZ, radius + 6);
+        int cx = PROJ[0];
+        int cy = PROJ[1];
 
         drawMarker(graphics, cx, cy, radius, (float) config.scaledThickness(), color, config.markerStyle);
 
         if (config.showDistance) {
-            String distText = Math.round(distance) + "m";
-            graphics.drawString(mc.font, Component.literal(distText),
+            int meters = (int) Math.round(distance);
+            if (meters != distMeters || distText == null) {
+                distMeters = meters;
+                distText = Component.translatable("eyelocator.hud.distance_m", meters);
+            }
+            graphics.drawString(mc.font, distText,
                     cx - mc.font.width(distText) / 2, cy + radius + 5, 0xFFFFFFFF, true);
         }
         if (config.showLabels && label != null) {
-            graphics.drawString(mc.font, Component.literal(label),
+            graphics.drawString(mc.font, label,
                     cx - mc.font.width(label) / 2, cy - radius - 13, color, true);
         }
     }
 
     private static void drawArchivedMarkers(GuiGraphics graphics, Minecraft mc, ForgeConfig config) {
-        String dimension = mc.level.dimension().location().toString();
+        if (mc.level != cachedLevel) {
+            cachedLevel = mc.level;
+            cachedDimension = mc.level.dimension().location().toString();
+        }
+        String dimension = cachedDimension;
         StrongholdLocator locator = ChannelManager.active().locator;
 
         int radius = Math.max(3, (int) Math.round(BASE_RADIUS * 0.6 * clamp(config.markerScale, 0.4, 3.0)));
         float thickness = Math.max(1.0f, (float) (config.scaledThickness() * 0.7));
+        int color = config.archivedColor();
 
         for (ForgeRegistry.Entry entry : ForgeRegistry.entries()) {
             if (!entry.dimension.equals(dimension)) {
@@ -160,34 +235,43 @@ public final class ForgeHud {
                     && Math.hypot(entry.x - locator.estX(), entry.z - locator.estZ()) < 128) {
                 continue; // 与当前定位重叠
             }
-            int[] pos = project(graphics, mc, entry.x, entry.z, radius + 6);
-            drawMarker(graphics, pos[0], pos[1], radius, thickness, config.archivedColor(), config.markerStyle);
+            project(graphics, mc, entry.x, entry.z, radius + 6);
+            drawMarker(graphics, PROJ[0], PROJ[1], radius, thickness, color, config.markerStyle);
 
             if (config.showLabels) {
-                String text = entry.name;
-                if (text == null || text.isEmpty()) {
+                String labelSource = null;
+                if (entry.name != null && !entry.name.isEmpty()) {
+                    labelSource = entry.name;
+                } else {
                     LocatorChannel owner = ChannelManager.byId(entry.channel);
-                    text = owner == null ? null : owner.displayName;
+                    if (owner != null) {
+                        labelSource = owner.displayName;
+                    }
                 }
-                if (text != null && !text.isEmpty()) {
-                    graphics.drawString(mc.font, Component.literal(text),
-                            pos[0] - mc.font.width(text) / 2,
-                            pos[1] - radius - 11, config.archivedColor(), true);
+                if (labelSource != null) {
+                    Component text = NAME_CACHE.get(labelSource);
+                    if (text == null) {
+                        text = Component.literal(labelSource);
+                        NAME_CACHE.put(labelSource, text);
+                    }
+                    graphics.drawString(mc.font, text,
+                            PROJ[0] - mc.font.width(text) / 2,
+                            PROJ[1] - radius - 11, color, true);
                 }
             }
         }
     }
 
     /**
-     * 世界坐标 -> 屏幕坐标（水平方向），超出屏幕贴边。
+     * 世界坐标 -> 屏幕坐标（水平方向），超出屏幕贴边。结果写入 {@link #PROJ}。
      *
      * <p>这里刻意不用 {@code Camera#rotation()} 的四元数：原版在 1.21 改过这个
      * 四元数的基准约定（1.20.x 是 {@code forwards = rot * (0,0,1)}、{@code left = rot * (1,0,0)}，
      * 1.21+ 变成了 {@code rot * (0,0,-1)} / {@code rot * (1,0,0)}），同一份代码不可能两边都对。
      * 改用相机的 yaw/pitch 自己算基向量，语义跨版本一致。</p>
      */
-    private static int[] project(GuiGraphics graphics, Minecraft mc,
-                                 double targetX, double targetZ, int margin) {
+    private static void project(GuiGraphics graphics, Minecraft mc,
+                                double targetX, double targetZ, int margin) {
         Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
         float yaw = (float) Math.toRadians(mc.gameRenderer.getMainCamera().getYRot());
         float pitch = (float) Math.toRadians(mc.gameRenderer.getMainCamera().getXRot());
@@ -233,9 +317,8 @@ public final class ForgeHud {
             sx = rx >= 0 ? screenW - m : m;
             sy = screenH * 0.5f;
         }
-        int cx = Math.round(Mth.clamp(sx, m, screenW - m));
-        int cy = Math.round(Mth.clamp(sy, m, screenH - m));
-        return new int[]{cx, cy};
+        PROJ[0] = Math.round(Mth.clamp(sx, m, screenW - m));
+        PROJ[1] = Math.round(Mth.clamp(sy, m, screenH - m));
     }
 
     // ---- 抗锯齿自绘图形 ----
@@ -338,16 +421,25 @@ public final class ForgeHud {
         return v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v);
     }
 
-    private static void drawPanel(GuiGraphics graphics, Minecraft mc, String[] lines, int[] colors) {
+    /** 简单的数值混合，用作"面板内容是否变化"的指纹。 */
+    private static long mix(long hash, long value) {
+        long h = hash ^ (value + 0x9E3779B97F4A7C15L + (hash << 6) + (hash >>> 2));
+        h ^= h >>> 33;
+        h *= 0xFF51AFD7ED558CCDL;
+        h ^= h >>> 33;
+        return h;
+    }
+
+    private static void drawPanel(GuiGraphics graphics, Minecraft mc, Component[] lines, int[] colors) {
         int x = 6;
         int y = 6;
         int width = 0;
-        for (String line : lines) {
+        for (Component line : lines) {
             width = Math.max(width, mc.font.width(line));
         }
         graphics.fill(x - 3, y - 3, x + width + 5, y + 11 * lines.length + 1, PANEL_BG);
         for (int i = 0; i < lines.length; i++) {
-            graphics.drawString(mc.font, Component.literal(lines[i]), x, y + i * 11, colors[i], true);
+            graphics.drawString(mc.font, lines[i], x, y + i * 11, colors[i], true);
         }
     }
 }

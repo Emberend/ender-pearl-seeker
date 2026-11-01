@@ -45,11 +45,16 @@ minecraft {
     }
 }
 
-// 与加载器无关的纯算法代码，与 Fabric 模块共用同一份源码
+// 与加载器无关的纯算法代码，与 Fabric 模块共用同一份源码；测试也共用
 sourceSets {
     main {
         java {
             srcDir '../common/src/main/java'
+        }
+    }
+    test {
+        java {
+            srcDir '../src/test/java'
         }
     }
 }
@@ -60,6 +65,17 @@ repositories {
 
 dependencies {
     minecraft "net.minecraftforge:forge:${project.minecraft_version}-${project.forge_version}"
+
+    testImplementation platform("org.junit:junit-bom:5.10.2")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+tasks.named("test") {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {

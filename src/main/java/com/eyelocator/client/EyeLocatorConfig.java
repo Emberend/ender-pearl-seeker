@@ -44,6 +44,17 @@ public final class EyeLocatorConfig {
     public boolean showLabels = true;
     public boolean showPanel = true;
 
+    /** 锁定结果时把坐标发到聊天栏（方便回看/分享）。 */
+    public boolean notifyChat = true;
+
+    // ---- 解析后的颜色缓存：避免 HUD 每帧重新解析字符串 ----
+    private transient String cachedStrongholdSource;
+    private transient int cachedStronghold;
+    private transient String cachedAdviceSource;
+    private transient int cachedAdvice;
+    private transient String cachedArchivedSource;
+    private transient int cachedArchived;
+
     /** 下一最佳投掷点的横向基准距离（格）。 */
     public double baseline = 400.0;
 
@@ -132,15 +143,27 @@ public final class EyeLocatorConfig {
     }
 
     public int strongholdColor() {
-        return parseColor(colorStronghold, 0xFF55FF55);
+        if (colorStronghold == null || !colorStronghold.equals(cachedStrongholdSource)) {
+            cachedStronghold = parseColor(colorStronghold, 0xFF55FF55);
+            cachedStrongholdSource = colorStronghold;
+        }
+        return cachedStronghold;
     }
 
     public int adviceColor() {
-        return parseColor(colorAdvice, 0xFF4FD8FF);
+        if (colorAdvice == null || !colorAdvice.equals(cachedAdviceSource)) {
+            cachedAdvice = parseColor(colorAdvice, 0xFF4FD8FF);
+            cachedAdviceSource = colorAdvice;
+        }
+        return cachedAdvice;
     }
 
     public int archivedColor() {
-        return parseColor(colorArchived, 0xFFB0B0B0);
+        if (colorArchived == null || !colorArchived.equals(cachedArchivedSource)) {
+            cachedArchived = parseColor(colorArchived, 0xFFB0B0B0);
+            cachedArchivedSource = colorArchived;
+        }
+        return cachedArchived;
     }
 
     public double scaledRadius() {

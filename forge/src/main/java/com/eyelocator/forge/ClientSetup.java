@@ -1,10 +1,16 @@
 package com.eyelocator.forge;
 
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import com.eyelocator.core.ChannelManager;
+import com.eyelocator.core.Fmt;
 import com.eyelocator.core.LocatorChannel;
+import com.eyelocator.core.LocatorState;
 import com.eyelocator.core.StrongholdLocator;
 import com.mojang.blaze3d.platform.InputConstants;
 
@@ -21,6 +27,7 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.fml.loading.FMLPaths;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -41,6 +48,14 @@ public final class ClientSetup {
     /** 上一 tick 存在的实体 id，用于发现新加载的实体。 */
     private static Set<Integer> seenEntities = new HashSet<>();
 
+    private static final Path STATE_PATH =
+            FMLPaths.CONFIGDIR.get().resolve("eyelocator_state.json");
+    /** 从磁盘恢复的射线所属维度，用于第一次进入世界时校验。 */
+    private static String restoredDimension;
+    private static boolean stateReconciled;
+    /** 每个通道上次播报过的坐标，避免同一条方位重复刷屏。 */
+    private static final Map<String, double[]> LAST_NOTIFIED = new HashMap<>();
+
     private ClientSetup() {
     }
 
@@ -48,6 +63,7 @@ public final class ClientSetup {
     public static void init() {
         ForgeConfig.load();
         ForgeRegistry.load();
+        loadState();
 
         FMLJavaModLoadingContext.get().getModEventBus().addListener(ClientSetup::registerKeys);
         MinecraftForge.EVENT_BUS.register(INSTANCE);
@@ -86,8 +102,19 @@ public final class ClientSetup {
             ChannelManager.resetAllRays();
             ForgeTracker.clear();
             seenEntities.clear();
+            LAST_NOTIFIED.clear();
+            saveState();
         }
         currentDimension = dimension;
+
+        if (!stateReconciled) {
+            stateReconciled = true;
+            if (restoredDimension != null && !restoredDimension.equals(dimension)) {
+                ChannelManager.resetAllRays();
+                saveState();
+                EyeLocatorForge.LOGGER.info("丢弃上一个维度的未完成定位（{}）", restoredDimension);
+            }
+        }
 
         scanEntities(mc, level);
         ForgeTracker.tick(level);
@@ -136,7 +163,7 @@ public final class ClientSetup {
             }
             ChannelManager.getOrCreate(id);
             ForgeTracker.begin(entity, id);
-            notifyPlayer("已识别定位道具：" + id + "（已写入配置，之后会自动追踪）");
+            notifyPlayer(Component.translatable("eyelocator.chat.learned", id));
             return;
         }
 
@@ -165,6 +192,8 @@ public final class ClientSetup {
         ChannelManager.resetAllRays();
         ForgeTracker.clear();
         seenEntities.clear();
+        LAST_NOTIFIED.clear();
+        saveState();
     }
 
     /** 彻底清空：当前定位 + 全部归档。 */
@@ -173,6 +202,8 @@ public final class ClientSetup {
         ForgeTracker.clear();
         seenEntities.clear();
         ForgeRegistry.clear();
+        LAST_NOTIFIED.clear();
+        saveState();
     }
 
     /** 一条方位射线完成（道具飞出足够距离）时调用。 */
@@ -187,7 +218,7 @@ public final class ClientSetup {
             ForgeRegistry.update(channel.id, channel.locator.estX(), channel.locator.estZ(),
                     channel.locator.confidence(), dimension);
             channel.locator.reset();
-            notifyPlayer("检测到不同的目标：已归档上一个，重新定位中");
+            notifyPlayer(Component.translatable("eyelocator.chat.changed"));
         }
 
         channel.locator.addRay(ray);
@@ -195,7 +226,32 @@ public final class ClientSetup {
         if (dimension != null && channel.locator.hasEstimate()) {
             ForgeRegistry.update(channel.id, channel.locator.estX(), channel.locator.estZ(),
                     channel.locator.confidence(), dimension);
+            notifyLocked(channel);
         }
+        saveState();
+    }
+
+    /** 锁定坐标时发一条聊天消息（可在配置里关掉）。 */
+    private static void notifyLocked(LocatorChannel channel) {
+        if (!ForgeConfig.get().notifyChat) {
+            return;
+        }
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) {
+            return;
+        }
+        double x = channel.locator.estX();
+        double z = channel.locator.estZ();
+        double[] last = LAST_NOTIFIED.get(channel.id);
+        if (last != null && Math.hypot(last[0] - x, last[1] - z) < 8.0) {
+            return;
+        }
+        LAST_NOTIFIED.put(channel.id, new double[]{x, z});
+
+        double distance = Math.hypot(x - mc.player.getX(), z - mc.player.getZ());
+        mc.player.displayClientMessage(Component.translatable("eyelocator.chat.locked",
+                channel.displayName, Fmt.number(x), Fmt.number(z),
+                Math.round(distance), Math.round(channel.locator.confidence() * 100)), false);
     }
 
     private static void archiveAllChannels(String dimension) {
@@ -210,10 +266,38 @@ public final class ClientSetup {
         }
     }
 
-    public static void notifyPlayer(String message) {
+    public static void notifyPlayer(Component message) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) {
-            mc.player.displayClientMessage(Component.literal(message), false);
+            mc.player.displayClientMessage(message, false);
         }
+    }
+
+    // ---- 未完成定位的磁盘持久化 ----
+
+    private static void loadState() {
+        try {
+            LocatorState state = LocatorState.read(STATE_PATH);
+            if (state != null) {
+                state.apply();
+                restoredDimension = state.dimension;
+            }
+        } catch (IOException e) {
+            EyeLocatorForge.LOGGER.warn("读取未完成定位失败: {}", e.getMessage());
+        }
+    }
+
+    /** 把当前所有射线写盘；没有射线时会删除文件。 */
+    public static void saveState() {
+        try {
+            LocatorState.capture(currentDimension).write(STATE_PATH);
+        } catch (IOException e) {
+            EyeLocatorForge.LOGGER.warn("保存未完成定位失败: {}", e.getMessage());
+        }
+    }
+
+    /** 当前维度 id（可能为 null，比如还没进世界）。 */
+    public static String currentDimension() {
+        return currentDimension;
     }
 }

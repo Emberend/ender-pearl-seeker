@@ -10,6 +10,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 /** 客户端命令 {@code /eyelocator ...}：在游戏内查看与修改配置。 */
 public final class ForgeCommands {
@@ -32,19 +33,19 @@ public final class ForgeCommands {
                 .then(net.minecraft.commands.Commands.literal("reload")
                         .executes(ctx -> {
                             ForgeConfig.load();
-                            feedback(ctx.getSource(), "配置已重新加载");
+                            feedback(ctx.getSource(), Component.translatable("eyelocator.cmd.reloaded"));
                             return 1;
                         }))
                 .then(net.minecraft.commands.Commands.literal("reset")
                         .executes(ctx -> {
                             ClientSetup.endCurrent();
-                            feedback(ctx.getSource(), "已结束当前定位（归档保留）");
+                            feedback(ctx.getSource(), Component.translatable("eyelocator.cmd.reset_done"));
                             return 1;
                         }))
                 .then(net.minecraft.commands.Commands.literal("clearall")
                         .executes(ctx -> {
                             ClientSetup.clearEverything();
-                            feedback(ctx.getSource(), "已清空当前定位与全部归档");
+                            feedback(ctx.getSource(), Component.translatable("eyelocator.cmd.cleared"));
                             return 1;
                         }))
                 .then(net.minecraft.commands.Commands.literal("style")
@@ -56,12 +57,12 @@ public final class ForgeCommands {
                                 .executes(ctx -> {
                                     String style = StringArgumentType.getString(ctx, "style");
                                     if (!style.equals("diamond") && !style.equals("circle") && !style.equals("cross")) {
-                                        feedback(ctx.getSource(), "样式只能是 diamond / circle / cross");
+                                        feedback(ctx.getSource(), Component.translatable("eyelocator.cmd.style_only"));
                                         return 0;
                                     }
                                     ForgeConfig.get().markerStyle = style;
                                     ForgeConfig.save();
-                                    feedback(ctx.getSource(), "路标样式: " + style);
+                                    feedback(ctx.getSource(), Component.translatable("eyelocator.cmd.style_set", style));
                                     return 1;
                                 })))
                 .then(net.minecraft.commands.Commands.literal("scale")
@@ -70,7 +71,7 @@ public final class ForgeCommands {
                                     double scale = DoubleArgumentType.getDouble(ctx, "scale");
                                     ForgeConfig.get().markerScale = scale;
                                     ForgeConfig.save();
-                                    feedback(ctx.getSource(), String.format("路标缩放: %.2f", scale));
+                                    feedback(ctx.getSource(), Component.translatable("eyelocator.cmd.scale_set", scale));
                                     return 1;
                                 })))
                 .then(net.minecraft.commands.Commands.literal("baseline")
@@ -79,7 +80,7 @@ public final class ForgeCommands {
                                     double d = DoubleArgumentType.getDouble(ctx, "distance");
                                     ForgeConfig.get().baseline = d;
                                     ForgeConfig.save();
-                                    feedback(ctx.getSource(), String.format("最佳投掷点基准距离: %.0f", d));
+                                    feedback(ctx.getSource(), Component.translatable("eyelocator.cmd.baseline_set", d));
                                     return 1;
                                 })))
                 .then(net.minecraft.commands.Commands.literal("color")
@@ -98,21 +99,22 @@ public final class ForgeCommands {
                                     boolean on = BoolArgumentType.getBool(ctx, "on");
                                     ForgeConfig.get().showArchived = on;
                                     ForgeConfig.save();
-                                    feedback(ctx.getSource(), "显示已归档目标: " + (on ? "开" : "关"));
+                                    feedback(ctx.getSource(), Component.translatable("eyelocator.cmd.archived_set",
+                                            Component.translatable(on
+                                                    ? "eyelocator.screen.on" : "eyelocator.screen.off")));
                                     return 1;
                                 })))
                 .then(net.minecraft.commands.Commands.literal("track")
                         .then(net.minecraft.commands.Commands.literal("next")
                                 .executes(ctx -> {
                                     ForgeClassifier.requestLearning();
-                                    feedback(ctx.getSource(),
-                                            "已进入识别模式：15 秒内使用那个道具，第一个飞行物会被记住");
+                                    feedback(ctx.getSource(), Component.translatable("eyelocator.cmd.learn_start_forge"));
                                     return 1;
                                 }))
                         .then(net.minecraft.commands.Commands.literal("stop")
                                 .executes(ctx -> {
                                     ForgeClassifier.stopLearning();
-                                    feedback(ctx.getSource(), "已退出识别模式");
+                                    feedback(ctx.getSource(), Component.translatable("eyelocator.cmd.learn_stop"));
                                     return 1;
                                 }))
                         .then(net.minecraft.commands.Commands.argument("entity", StringArgumentType.string())
@@ -134,40 +136,47 @@ public final class ForgeCommands {
         ForgeConfig cfg = ForgeConfig.get();
         LocatorChannel channel = ChannelManager.active();
         StrongholdLocator locator = channel.locator;
-        feedback(source, "=== 末影寻珠 (Forge) ===");
-        feedback(source, String.format("样式 %s · 缩放 %.2f · 粗细 %.1f",
+        feedback(source, Component.translatable("eyelocator.cmd.status_header_forge"));
+        feedback(source, Component.translatable("eyelocator.cmd.status_style",
                 cfg.markerStyle, cfg.markerScale, cfg.markerThickness));
-        feedback(source, String.format("基线距离 %.0f · 异常阈值 %.0f", cfg.baseline, cfg.outlierResidual));
-        feedback(source, String.format("[%s] 样本 %d · 已归档 %d · %s",
+        feedback(source, Component.translatable("eyelocator.cmd.status_tuning",
+                cfg.baseline, cfg.outlierResidual));
+        feedback(source, Component.translatable("eyelocator.cmd.status_channel",
                 channel.displayName, locator.sampleCount(), ForgeRegistry.size(channel.id),
-                locator.hasEstimate() ? "已定位" : "未定位"));
+                Component.translatable(locator.hasEstimate()
+                        ? "eyelocator.cmd.status_located" : "eyelocator.cmd.status_unlocated")));
         if (ChannelManager.all().size() > 1) {
-            feedback(source, "共 " + ChannelManager.all().size() + " 个通道，用 /eyelocator channels 查看");
+            feedback(source, Component.translatable("eyelocator.cmd.status_multi", ChannelManager.all().size()));
         }
-        feedback(source, "用法: /eyelocator gui|reload|reset|clearall|style|scale|baseline|color|archived|track|channels|channel");
+        feedback(source, Component.translatable("eyelocator.cmd.usage_forge"));
     }
 
     private static int setColor(CommandSourceStack source, String which, String hex) {
         ForgeConfig cfg = ForgeConfig.get();
+        String key;
         if ("stronghold".equalsIgnoreCase(which)) {
             cfg.colorStronghold = hex;
+            key = "eyelocator.cmd.color_stronghold";
         } else if ("advice".equalsIgnoreCase(which)) {
             cfg.colorAdvice = hex;
+            key = "eyelocator.cmd.color_advice";
         } else if ("archived".equalsIgnoreCase(which)) {
             cfg.colorArchived = hex;
+            key = "eyelocator.cmd.color_archived";
         } else {
-            feedback(source, "可选: stronghold / advice / archived");
+            feedback(source, Component.translatable("eyelocator.cmd.color_choices"));
             return 0;
         }
         ForgeConfig.save();
-        feedback(source, "颜色已更新: " + which + " = " + hex);
+        feedback(source, Component.translatable("eyelocator.cmd.color_updated",
+                Component.translatable(key), hex));
         return 1;
     }
 
     private static int addTracked(CommandSourceStack source, String entityId) {
         String id = entityId.trim();
         if (id.isEmpty()) {
-            feedback(source, "用法: /eyelocator track <实体id>，例如 goety:cryptic_eye");
+            feedback(source, Component.translatable("eyelocator.cmd.track_usage"));
             return 0;
         }
         if (!id.contains(":")) {
@@ -180,7 +189,7 @@ public final class ForgeCommands {
         }
         LocatorChannel channel = ChannelManager.getOrCreate(id);
         ChannelManager.setActive(channel);
-        feedback(source, "已加入追踪: " + id + "（" + channel.displayName + "）");
+        feedback(source, Component.translatable("eyelocator.cmd.track_added", id, channel.displayName));
         return 1;
     }
 
@@ -191,28 +200,31 @@ public final class ForgeCommands {
         }
         LocatorChannel channel = ChannelManager.getOrCreate(id);
         ChannelManager.setActive(channel);
-        feedback(source, "当前通道: " + channel.displayName + "（" + channel.id + "）");
+        ClientSetup.saveState();
+        feedback(source, Component.translatable("eyelocator.cmd.channel_switched", channel.displayName, channel.id));
         return 1;
     }
 
     private static void printChannels(CommandSourceStack source) {
         if (ChannelManager.all().isEmpty()) {
-            feedback(source, "还没有任何定位通道，扔一次道具即可创建");
+            feedback(source, Component.translatable("eyelocator.cmd.no_channels"));
             return;
         }
-        feedback(source, "=== 定位通道 ===");
+        feedback(source, Component.translatable("eyelocator.cmd.channels_header"));
         for (LocatorChannel channel : ChannelManager.all()) {
-            feedback(source, String.format("%s %-24s 样本 %d · 归档 %d%s",
+            feedback(source, Component.translatable("eyelocator.cmd.channel_line",
                     channel == ChannelManager.active() ? "*" : " ",
                     channel.displayName,
                     channel.locator.sampleCount(),
                     ForgeRegistry.size(channel.id),
-                    channel.locator.hasEstimate() ? " · 已定位" : ""));
+                    channel.locator.hasEstimate()
+                            ? Component.translatable("eyelocator.cmd.status_located_suffix")
+                            : Component.literal("")));
         }
-        feedback(source, "用 /eyelocator channel <实体id> 切换 HUD 显示的通道");
+        feedback(source, Component.translatable("eyelocator.cmd.channels_footer"));
     }
 
-    private static void feedback(CommandSourceStack source, String message) {
-        source.sendSuccess(() -> Component.literal(message), false);
+    private static void feedback(CommandSourceStack source, Component message) {
+        source.sendSuccess(() -> message, false);
     }
 }

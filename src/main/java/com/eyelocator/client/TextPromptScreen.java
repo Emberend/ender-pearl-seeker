@@ -18,8 +18,8 @@ public final class TextPromptScreen extends Screen {
     private final Callback callback;
     private TextFieldWidget field;
 
-    public TextPromptScreen(Screen parent, String heading, String initial, Callback callback) {
-        super(Text.literal(heading));
+    public TextPromptScreen(Screen parent, Text heading, String initial, Callback callback) {
+        super(heading);
         this.parent = parent;
         this.initial = initial;
         this.callback = callback;
@@ -28,18 +28,19 @@ public final class TextPromptScreen extends Screen {
     @Override
     protected void init() {
         this.field = new TextFieldWidget(this.textRenderer,
-                this.width / 2 - 100, this.height / 2 - 12, 200, 20, Text.literal("名称"));
+                this.width / 2 - 100, this.height / 2 - 12, 200, 20,
+                Text.translatable("eyelocator.prompt.name"));
         this.field.setMaxLength(32);
         this.field.setText(this.initial == null ? "" : this.initial);
         addDrawableChild(this.field);
         this.setInitialFocus(this.field);
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("确定"), b -> {
+        addDrawableChild(ButtonWidget.builder(Text.translatable("eyelocator.prompt.confirm"), b -> {
             callback.accept(this.field.getText());
             close();
         }).dimensions(this.width / 2 - 102, this.height / 2 + 20, 100, 20).build());
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("取消"), b -> close())
+        addDrawableChild(ButtonWidget.builder(Text.translatable("eyelocator.prompt.cancel"), b -> close())
                 .dimensions(this.width / 2 + 2, this.height / 2 + 20, 100, 20).build());
     }
 
@@ -49,7 +50,7 @@ public final class TextPromptScreen extends Screen {
         context.drawCenteredTextWithShadow(this.textRenderer, this.title,
                 this.width / 2, this.height / 2 - 34, 0xFFFFFFFF);
         context.drawCenteredTextWithShadow(this.textRenderer,
-                Text.literal("留空表示不命名"), this.width / 2, this.height / 2 + 46, 0xFF888888);
+                Text.translatable("eyelocator.prompt.hint"), this.width / 2, this.height / 2 + 46, 0xFF888888);
     }
 
     @Override

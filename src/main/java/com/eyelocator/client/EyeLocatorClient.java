@@ -1,7 +1,9 @@
 package com.eyelocator.client;
 
 import com.eyelocator.core.ChannelManager;
+import com.eyelocator.core.Fmt;
 import com.eyelocator.core.LocatorChannel;
+import com.eyelocator.core.LocatorState;
 import com.eyelocator.core.StrongholdLocator;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
@@ -17,6 +19,13 @@ import net.minecraft.entity.Entity;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+import net.fabricmc.loader.api.FabricLoader;
+
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,14 +36,26 @@ public final class EyeLocatorClient implements ClientModInitializer {
     public static final String MOD_ID = "eyelocator";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
+    /** 进行中的射线快照，放在 config 目录里与其它数据一致。 */
+    private static final Path STATE_PATH =
+            FabricLoader.getInstance().getConfigDir().resolve("eyelocator_state.json");
+
     private static KeyBinding clearKey;
     private static KeyBinding menuKey;
     private static String currentDimension;
+
+    /** 从磁盘恢复的射线所属维度，用于第一次进入世界时校验。 */
+    private static String restoredDimension;
+    private static boolean stateReconciled;
+
+    /** 每个通道上次播报过的坐标，避免同一条方位重复刷屏。 */
+    private static final Map<String, double[]> LAST_NOTIFIED = new HashMap<>();
 
     @Override
     public void onInitializeClient() {
         EyeLocatorConfig.load();
         StrongholdRegistry.load();
+        loadState();
 
         clearKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.eyelocator.clear",
@@ -67,6 +88,11 @@ public final class EyeLocatorClient implements ClientModInitializer {
         return ChannelManager.active().id;
     }
 
+    /** 当前维度 id（可能为 null，比如还没进世界）。 */
+    public static String currentDimension() {
+        return currentDimension;
+    }
+
     private static void onEntityLoad(Entity entity, ClientWorld world) {
         // 手动学习模式优先：用户刚输入过 /eyelocator track next
         if (EntityClassifier.isLearnCandidate(entity, MinecraftClient.getInstance().player)) {
@@ -79,7 +105,7 @@ public final class EyeLocatorClient implements ClientModInitializer {
             }
             ChannelManager.getOrCreate(id);
             EyeTracker.begin(entity, id);
-            notifyPlayer("已识别定位道具：" + id + "（已写入配置，之后会自动追踪）");
+            notifyPlayer(Text.translatable("eyelocator.chat.learned", id));
             return;
         }
 
@@ -100,8 +126,20 @@ public final class EyeLocatorClient implements ClientModInitializer {
             archiveAllChannels(currentDimension);
             ChannelManager.resetAllRays();
             EyeTracker.clear();
+            LAST_NOTIFIED.clear();
+            saveState();
         }
         currentDimension = dimension;
+
+        // 第一次拿到维度时校验磁盘里的残留射线是不是同一个世界的
+        if (!stateReconciled) {
+            stateReconciled = true;
+            if (restoredDimension != null && !restoredDimension.equals(dimension)) {
+                ChannelManager.resetAllRays();
+                saveState();
+                LOGGER.info("丢弃上一个维度的未完成定位（{}）", restoredDimension);
+            }
+        }
 
         EyeTracker.tick(client.world);
 
@@ -122,6 +160,8 @@ public final class EyeLocatorClient implements ClientModInitializer {
         archiveAllChannels(currentDimension);
         ChannelManager.resetAllRays();
         EyeTracker.clear();
+        LAST_NOTIFIED.clear();
+        saveState();
     }
 
     /** 彻底清空：当前定位 + 全部归档。 */
@@ -129,6 +169,8 @@ public final class EyeLocatorClient implements ClientModInitializer {
         ChannelManager.resetAllRays();
         EyeTracker.clear();
         StrongholdRegistry.clear();
+        LAST_NOTIFIED.clear();
+        saveState();
     }
 
     /** 一条方位射线完成（道具飞出足够距离）时调用。 */
@@ -144,7 +186,7 @@ public final class EyeLocatorClient implements ClientModInitializer {
             StrongholdRegistry.update(channel.id, channel.locator.estX(), channel.locator.estZ(),
                     channel.locator.confidence(), dimension);
             channel.locator.reset();
-            notifyPlayer("检测到不同的目标：已归档上一个，重新定位中");
+            notifyPlayer(Text.translatable("eyelocator.chat.changed"));
         }
 
         channel.locator.addRay(ray);
@@ -152,7 +194,32 @@ public final class EyeLocatorClient implements ClientModInitializer {
         if (dimension != null && channel.locator.hasEstimate()) {
             StrongholdRegistry.update(channel.id, channel.locator.estX(), channel.locator.estZ(),
                     channel.locator.confidence(), dimension);
+            notifyLocked(channel);
         }
+        saveState();
+    }
+
+    /** 锁定坐标时发一条聊天消息（可在配置里关掉）。 */
+    private static void notifyLocked(LocatorChannel channel) {
+        if (!EyeLocatorConfig.get().notifyChat) {
+            return;
+        }
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) {
+            return;
+        }
+        double x = channel.locator.estX();
+        double z = channel.locator.estZ();
+        double[] last = LAST_NOTIFIED.get(channel.id);
+        if (last != null && Math.hypot(last[0] - x, last[1] - z) < 8.0) {
+            return;
+        }
+        LAST_NOTIFIED.put(channel.id, new double[]{x, z});
+
+        double distance = Math.hypot(x - client.player.getX(), z - client.player.getZ());
+        client.player.sendMessage(Text.translatable("eyelocator.chat.locked",
+                channel.displayName, Fmt.number(x), Fmt.number(z),
+                Math.round(distance), Math.round(channel.locator.confidence() * 100)), false);
     }
 
     /** 把所有通道当前的估计写入归档。 */
@@ -168,10 +235,33 @@ public final class EyeLocatorClient implements ClientModInitializer {
         }
     }
 
-    private static void notifyPlayer(String message) {
+    // ---- 未完成定位的磁盘持久化 ----
+
+    private static void loadState() {
+        try {
+            LocatorState state = LocatorState.read(STATE_PATH);
+            if (state != null) {
+                state.apply();
+                restoredDimension = state.dimension;
+            }
+        } catch (IOException e) {
+            LOGGER.warn("读取未完成定位失败: {}", e.getMessage());
+        }
+    }
+
+    /** 把当前所有射线写盘；没有射线时会删除文件。 */
+    public static void saveState() {
+        try {
+            LocatorState.capture(currentDimension).write(STATE_PATH);
+        } catch (IOException e) {
+            LOGGER.warn("保存未完成定位失败: {}", e.getMessage());
+        }
+    }
+
+    private static void notifyPlayer(Text message) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player != null) {
-            client.player.sendMessage(Text.literal(message), false);
+            client.player.sendMessage(message, false);
         }
     }
 }

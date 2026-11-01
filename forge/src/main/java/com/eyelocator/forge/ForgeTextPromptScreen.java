@@ -19,8 +19,8 @@ public final class ForgeTextPromptScreen extends Screen {
 
     private EditBox field;
 
-    public ForgeTextPromptScreen(Screen parent, String heading, String initial, Callback callback) {
-        super(Component.literal(heading));
+    public ForgeTextPromptScreen(Screen parent, Component heading, String initial, Callback callback) {
+        super(heading);
         this.parent = parent;
         this.initial = initial;
         this.callback = callback;
@@ -29,18 +29,19 @@ public final class ForgeTextPromptScreen extends Screen {
     @Override
     protected void init() {
         this.field = new EditBox(this.font,
-                this.width / 2 - 100, this.height / 2 - 12, 200, 20, Component.literal("名称"));
+                this.width / 2 - 100, this.height / 2 - 12, 200, 20,
+                Component.translatable("eyelocator.prompt.name"));
         this.field.setMaxLength(32);
         this.field.setValue(this.initial == null ? "" : this.initial);
         this.addRenderableWidget(this.field);
         this.setInitialFocus(this.field);
 
-        this.addRenderableWidget(Button.builder(Component.literal("确定"), b -> {
+        this.addRenderableWidget(Button.builder(Component.translatable("eyelocator.prompt.confirm"), b -> {
             this.callback.accept(this.field.getValue());
             this.onClose();
         }).bounds(this.width / 2 - 102, this.height / 2 + 20, 100, 20).build());
 
-        this.addRenderableWidget(Button.builder(Component.literal("取消"), b -> this.onClose())
+        this.addRenderableWidget(Button.builder(Component.translatable("eyelocator.prompt.cancel"), b -> this.onClose())
                 .bounds(this.width / 2 + 2, this.height / 2 + 20, 100, 20).build());
     }
 
@@ -50,7 +51,7 @@ public final class ForgeTextPromptScreen extends Screen {
         super.render(graphics, mouseX, mouseY, partialTick);
         graphics.drawCenteredString(this.font, this.title,
                 this.width / 2, this.height / 2 - 34, 0xFFFFFFFF);
-        graphics.drawCenteredString(this.font, Component.literal("留空表示不命名"),
+        graphics.drawCenteredString(this.font, Component.translatable("eyelocator.prompt.hint"),
                 this.width / 2, this.height / 2 + 46, 0xFF888888);
     }
 

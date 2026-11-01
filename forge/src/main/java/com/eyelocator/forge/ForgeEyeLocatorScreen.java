@@ -7,6 +7,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import com.eyelocator.core.ChannelManager;
+import com.eyelocator.core.Fmt;
 import com.eyelocator.core.LocatorChannel;
 import com.eyelocator.core.StrongholdLocator;
 
@@ -15,6 +16,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 /**
  * Forge 版管理界面。默认按 {@code I} 打开。
@@ -56,7 +58,7 @@ public final class ForgeEyeLocatorScreen extends Screen {
     private Button archiveCurrentButton;
 
     public ForgeEyeLocatorScreen(Screen parent) {
-        super(Component.literal("末影寻珠 管理"));
+        super(Component.translatable("eyelocator.screen.title"));
         this.parent = parent;
     }
 
@@ -67,12 +69,15 @@ public final class ForgeEyeLocatorScreen extends Screen {
         int tabsTotal = tabsW * 2 + gap;
         int tabsX = (this.width - tabsTotal) / 2;
 
-        this.addRenderableWidget(Button.builder(Component.literal("设置"), b -> switchTab(0))
+        this.addRenderableWidget(Button.builder(Component.translatable("eyelocator.screen.tab.settings"),
+                        b -> switchTab(0))
                 .bounds(tabsX, 24, tabsW, BTN_H).build());
-        this.addRenderableWidget(Button.builder(Component.literal("归档"), b -> switchTab(1))
+        this.addRenderableWidget(Button.builder(Component.translatable("eyelocator.screen.tab.archive"),
+                        b -> switchTab(1))
                 .bounds(tabsX + tabsW + gap, 24, tabsW, BTN_H).build());
 
-        this.addRenderableWidget(Button.builder(Component.literal("完成"), b -> this.onClose())
+        this.addRenderableWidget(Button.builder(Component.translatable("eyelocator.screen.done"),
+                        b -> this.onClose())
                 .bounds(this.width / 2 - 50, this.height - 24, 100, BTN_H).build());
 
         if (this.tab == 0) {
@@ -101,41 +106,50 @@ public final class ForgeEyeLocatorScreen extends Screen {
         int totalW = colW * 2 + colGap;
         int left = (this.width - totalW) / 2;
         int right = left + colW + colGap;
-        int top = 66;
-        int row = 24;
+        int top = 60;
+        int row = 21;
 
-        this.addRenderableWidget(cycle("路标样式", () -> styleName(cfg.markerStyle),
+        this.addRenderableWidget(cycle("eyelocator.screen.style", () -> styleName(cfg.markerStyle),
                 () -> cfg.markerStyle = next(STYLES, cfg.markerStyle), left, top, colW,
-                "标记形状：菱形 / 圆环 / 十字"));
+                "eyelocator.screen.style.tooltip"));
 
-        this.addRenderableWidget(cycle("路标大小", () -> String.format("%.1f", cfg.markerScale),
+        this.addRenderableWidget(cycle("eyelocator.screen.scale", () -> Component.literal(String.format("%.1f", cfg.markerScale)),
                 () -> cfg.markerScale = next(SCALES, cfg.markerScale), left, top + row, colW,
-                "标记显示大小，0.6 到 2.0"));
+                "eyelocator.screen.scale.tooltip"));
 
-        this.addRenderableWidget(cycle("描边粗细", () -> String.format("%.1f", cfg.markerThickness),
+        this.addRenderableWidget(cycle("eyelocator.screen.thickness", () -> Component.literal(String.format("%.1f", cfg.markerThickness)),
                 () -> cfg.markerThickness = next(THICKNESSES, cfg.markerThickness), left, top + row * 2, colW,
-                "标记线条粗细，1.5 到 4.0"));
+                "eyelocator.screen.thickness.tooltip"));
 
-        this.addRenderableWidget(toggle("显示距离", () -> cfg.showDistance, v -> cfg.showDistance = v,
-                left, top + row * 3, colW, "在标记下方显示到目标的距离"));
+        this.addRenderableWidget(toggle("eyelocator.screen.show_distance", () -> cfg.showDistance,
+                v -> cfg.showDistance = v, left, top + row * 3, colW,
+                "eyelocator.screen.show_distance.tooltip"));
 
-        this.addRenderableWidget(toggle("显示名称", () -> cfg.showLabels, v -> cfg.showLabels = v,
-                right, top, colW, "在标记上方显示目标/投掷点的名称"));
+        this.addRenderableWidget(toggle("eyelocator.screen.show_labels", () -> cfg.showLabels,
+                v -> cfg.showLabels = v, left, top + row * 4, colW,
+                "eyelocator.screen.show_labels.tooltip"));
 
-        this.addRenderableWidget(toggle("显示信息面板", () -> cfg.showPanel, v -> cfg.showPanel = v,
-                right, top + row, colW, "左上角的坐标、距离、置信度面板"));
+        this.addRenderableWidget(toggle("eyelocator.screen.auto_detect", () -> cfg.autoDetect,
+                v -> cfg.autoDetect = v, left, top + row * 5, colW,
+                "eyelocator.screen.auto_detect.tooltip"));
 
-        this.addRenderableWidget(toggle("显示旧目标标记", () -> cfg.showArchived, v -> cfg.showArchived = v,
-                right, top + row * 2, colW, "把以前找到的其它目标显示为暗色小标记"));
+        this.addRenderableWidget(toggle("eyelocator.screen.show_panel", () -> cfg.showPanel,
+                v -> cfg.showPanel = v, right, top, colW,
+                "eyelocator.screen.show_panel.tooltip"));
 
-        this.addRenderableWidget(toggle("找新目标时隐藏旧标记", () -> cfg.hideArchivedWhileSearching,
-                v -> cfg.hideArchivedWhileSearching = v, right, top + row * 3, colW,
-                "还没算出当前目标时，自动隐藏旧标记，避免干扰"));
+        this.addRenderableWidget(toggle("eyelocator.screen.show_archived", () -> cfg.showArchived,
+                v -> cfg.showArchived = v, right, top + row, colW,
+                "eyelocator.screen.show_archived.tooltip"));
 
-        this.addRenderableWidget(toggle("自动识别新道具", () -> cfg.autoDetect, v -> cfg.autoDetect = v,
-                left, top + row * 4, colW, "实体 id 里含 eye / seeker 等关键词时自动追踪"));
+        this.addRenderableWidget(toggle("eyelocator.screen.hide_archived", () -> cfg.hideArchivedWhileSearching,
+                v -> cfg.hideArchivedWhileSearching = v, right, top + row * 2, colW,
+                "eyelocator.screen.hide_archived.tooltip"));
 
-        this.addRenderableWidget(Button.builder(Component.literal("恢复默认设置"), b -> {
+        this.addRenderableWidget(toggle("eyelocator.screen.notify_chat", () -> cfg.notifyChat,
+                v -> cfg.notifyChat = v, right, top + row * 3, colW,
+                "eyelocator.screen.notify_chat.tooltip"));
+
+        this.addRenderableWidget(Button.builder(Component.translatable("eyelocator.screen.reset"), b -> {
             cfg.markerStyle = "diamond";
             cfg.markerScale = 1.0;
             cfg.markerThickness = 3.0;
@@ -144,11 +158,12 @@ public final class ForgeEyeLocatorScreen extends Screen {
             cfg.showPanel = true;
             cfg.showArchived = true;
             cfg.hideArchivedWhileSearching = true;
+            cfg.notifyChat = true;
             cfg.autoDetect = true;
             ForgeConfig.save();
             this.rebuildWidgets();
         }).bounds(right, top + row * 4, colW, BTN_H)
-                .tooltip(Tooltip.create(Component.literal("只恢复上面这些开关，不动通道与归档")))
+                .tooltip(Tooltip.create(Component.translatable("eyelocator.screen.reset.tooltip")))
                 .build());
     }
 
@@ -165,40 +180,42 @@ public final class ForgeEyeLocatorScreen extends Screen {
         int x = Math.max(4, (this.width - total) / 2);
         int y = this.height - 46;
 
-        this.prevButton = this.addRenderableWidget(Button.builder(Component.literal("上一页"), b -> {
-            if (this.page > 0) {
-                this.page--;
-            }
-        }).bounds(x, y, navW, ARCHIVE_BTN_H).build());
+        this.prevButton = this.addRenderableWidget(Button.builder(
+                        Component.translatable("eyelocator.screen.archive.prev"), b -> {
+                            if (this.page > 0) {
+                                this.page--;
+                            }
+                        }).bounds(x, y, navW, ARCHIVE_BTN_H).build());
         x += navW + gap;
 
-        this.nextButton = this.addRenderableWidget(Button.builder(Component.literal("下一页"), b -> this.page++)
+        this.nextButton = this.addRenderableWidget(Button.builder(
+                        Component.translatable("eyelocator.screen.archive.next"), b -> this.page++)
                 .bounds(x, y, navW, ARCHIVE_BTN_H).build());
         x += navW + gap;
 
         this.archiveCurrentButton = this.addRenderableWidget(
-                Button.builder(Component.literal("归档当前坐标"), b -> archiveCurrent())
+                Button.builder(Component.translatable("eyelocator.screen.archive.add"), b -> archiveCurrent())
                         .bounds(x, y, addW, ARCHIVE_BTN_H)
-                        .tooltip(Tooltip.create(Component.literal("把当前算出的坐标保存到归档，并可命名")))
+                        .tooltip(Tooltip.create(Component.translatable("eyelocator.screen.archive.add.tooltip")))
                         .build());
         x += addW + gap;
 
-        this.addRenderableWidget(Button.builder(Component.literal("去重"), b -> {
+        this.addRenderableWidget(Button.builder(Component.translatable("eyelocator.screen.archive.dedupe"), b -> {
             int merged = ForgeRegistry.dedupe(ForgeConfig.get().dedupeDistance,
                     ClientSetup.activeChannelId());
             this.page = 0;
             if (this.minecraft != null && this.minecraft.player != null) {
                 this.minecraft.player.displayClientMessage(
-                        Component.literal("已合并 " + merged + " 个相近目标"), true);
+                        Component.translatable("eyelocator.chat.deduped", merged), true);
             }
         }).bounds(x, y, dedupeW, ARCHIVE_BTN_H).build());
         x += dedupeW + gap;
 
-        this.addRenderableWidget(Button.builder(Component.literal("清空"), b -> {
+        this.addRenderableWidget(Button.builder(Component.translatable("eyelocator.screen.archive.clear"), b -> {
             ForgeRegistry.clear();
             this.page = 0;
         }).bounds(x, y, clearW, ARCHIVE_BTN_H)
-                .tooltip(Tooltip.create(Component.literal("清空全部归档，不可撤销")))
+                .tooltip(Tooltip.create(Component.translatable("eyelocator.screen.archive.clear.tooltip")))
                 .build());
     }
 
@@ -211,7 +228,8 @@ public final class ForgeEyeLocatorScreen extends Screen {
         String channelId = ClientSetup.activeChannelId();
         double x = locator.estX();
         double z = locator.estZ();
-        this.minecraft.setScreen(new ForgeTextPromptScreen(this, "归档当前坐标", "",
+        this.minecraft.setScreen(new ForgeTextPromptScreen(this,
+                Component.translatable("eyelocator.prompt.archive_title"), "",
                 name -> ForgeRegistry.add(channelId, name, x, z, dimension)));
     }
 
@@ -220,32 +238,40 @@ public final class ForgeEyeLocatorScreen extends Screen {
             return;
         }
         String initial = entry.name == null ? "" : entry.name;
-        this.minecraft.setScreen(new ForgeTextPromptScreen(this, "重命名目标", initial,
+        this.minecraft.setScreen(new ForgeTextPromptScreen(this,
+                Component.translatable("eyelocator.prompt.rename_title"), initial,
                 name -> ForgeRegistry.rename(entry, name)));
     }
 
     // ---- 通用控件 ----
 
-    private Button cycle(String name, Supplier<String> value, Runnable action, int x, int y, int w,
-                         String tooltip) {
-        return Button.builder(Component.literal(name + ": " + value.get()), b -> {
+    private Button cycle(String labelKey, Supplier<Component> value, Runnable action, int x, int y, int w,
+                         String tooltipKey) {
+        return Button.builder(optionText(labelKey, value.get()), b -> {
             action.run();
             ForgeConfig.save();
-            b.setMessage(Component.literal(name + ": " + value.get()));
-        }).bounds(x, y, w, BTN_H).tooltip(Tooltip.create(Component.literal(tooltip))).build();
+            b.setMessage(optionText(labelKey, value.get()));
+        }).bounds(x, y, w, BTN_H)
+                .tooltip(Tooltip.create(Component.translatable(tooltipKey))).build();
     }
 
-    private Button toggle(String name, BooleanSupplier getter, Consumer<Boolean> setter, int x, int y, int w,
-                          String tooltip) {
-        return Button.builder(stateText(name, getter.getAsBoolean()), b -> {
+    private Button toggle(String labelKey, BooleanSupplier getter, Consumer<Boolean> setter, int x, int y, int w,
+                          String tooltipKey) {
+        return Button.builder(stateText(labelKey, getter.getAsBoolean()), b -> {
             setter.accept(!getter.getAsBoolean());
             ForgeConfig.save();
-            b.setMessage(stateText(name, getter.getAsBoolean()));
-        }).bounds(x, y, w, BTN_H).tooltip(Tooltip.create(Component.literal(tooltip))).build();
+            b.setMessage(stateText(labelKey, getter.getAsBoolean()));
+        }).bounds(x, y, w, BTN_H)
+                .tooltip(Tooltip.create(Component.translatable(tooltipKey))).build();
     }
 
-    private static Component stateText(String name, boolean on) {
-        return Component.literal(name + ": " + (on ? "开" : "关"));
+    private static MutableComponent optionText(String labelKey, Component value) {
+        return Component.translatable("eyelocator.screen.option", Component.translatable(labelKey), value);
+    }
+
+    private static MutableComponent stateText(String labelKey, boolean on) {
+        return Component.translatable("eyelocator.screen.option", Component.translatable(labelKey),
+                Component.translatable(on ? "eyelocator.screen.on" : "eyelocator.screen.off"));
     }
 
     // ---- 渲染 ----
@@ -269,26 +295,24 @@ public final class ForgeEyeLocatorScreen extends Screen {
         LocatorChannel channel = ChannelManager.active();
         StrongholdLocator locator = channel.locator;
         boolean narrow = this.width < NARROW_WIDTH;
-        String status;
+        Component status;
         if (!locator.hasEstimate()) {
-            status = String.format("%s · 样本 %d · 尚未定位",
+            status = Component.translatable("eyelocator.screen.status.unlocated",
                     channel.displayName, locator.sampleCount());
         } else {
-            String coords = String.format("X:%.0f Z:%.0f", locator.estX(), locator.estZ());
+            String coords = "X:" + Fmt.number(locator.estX()) + " Z:" + Fmt.number(locator.estZ());
             status = narrow
-                    ? String.format("%s · %s · 样本 %d",
+                    ? Component.translatable("eyelocator.screen.status.narrow",
                             channel.displayName, coords, locator.sampleCount())
-                    : String.format("%s · %s · 样本 %d · 置信 %d%%",
+                    : Component.translatable("eyelocator.screen.status.full",
                             channel.displayName, coords, locator.sampleCount(),
                             Math.round(locator.confidence() * 100));
         }
-        graphics.drawCenteredString(this.font, Component.literal(status),
-                this.width / 2, 50, COLOR_DIM);
+        graphics.drawCenteredString(this.font, status, this.width / 2, 46, COLOR_DIM);
 
-        int bottom = 66 + 24 * 4 + BTN_H + 8;
-        graphics.drawCenteredString(this.font, Component.literal(narrow
-                        ? "更多选项：config/eyelocator.json 或命令"
-                        : "更多选项：编辑 config/eyelocator.json，或用 /eyelocator 命令"),
+        int bottom = 60 + 21 * 5 + BTN_H + 10;
+        graphics.drawCenteredString(this.font, Component.translatable(narrow
+                        ? "eyelocator.screen.more.narrow" : "eyelocator.screen.more.full"),
                 this.width / 2, bottom, COLOR_DIM);
     }
 
@@ -301,13 +325,14 @@ public final class ForgeEyeLocatorScreen extends Screen {
         int right = this.width - 14;
         int rowTop = 64;
 
-        graphics.drawString(this.font,
-                Component.literal(narrow
-                        ? "已归档（" + dimName(dimension) + "）"
-                        : "已归档目标（当前维度：" + dimName(dimension) + "）"),
+        graphics.drawString(this.font, Component.translatable(narrow
+                        ? "eyelocator.screen.archive.header.narrow"
+                        : "eyelocator.screen.archive.header",
+                        dimName(dimension)),
                 left, 48, COLOR_DIM);
         if (!narrow) {
-            graphics.drawString(this.font, Component.literal("点击条目可重命名"), right - 90, 48, COLOR_DIM);
+            graphics.drawString(this.font, Component.translatable("eyelocator.screen.archive.rename_hint"),
+                    right - 90, 48, COLOR_DIM);
         }
 
         this.rowsPerPage = Math.max(3, (this.height - 46 - 8 - rowTop) / ROW_HEIGHT);
@@ -321,7 +346,8 @@ public final class ForgeEyeLocatorScreen extends Screen {
         }
 
         if (all.isEmpty()) {
-            graphics.drawString(this.font, Component.literal("暂无归档"), left, rowTop, COLOR_DIM);
+            graphics.drawString(this.font, Component.translatable("eyelocator.screen.archive.empty"),
+                    left, rowTop, COLOR_DIM);
             if (this.prevButton != null) {
                 this.prevButton.active = false;
             }
@@ -347,18 +373,20 @@ public final class ForgeEyeLocatorScreen extends Screen {
             ForgeRegistry.Entry entry = all.get(i);
             int y = rowTop + (i - start) * ROW_HEIGHT;
 
-            String name = entry.name == null || entry.name.isEmpty() ? "未命名" : entry.name;
+            Component name = entry.name == null || entry.name.isEmpty()
+                    ? Component.translatable("eyelocator.screen.unnamed")
+                    : Component.literal(entry.name);
             LocatorChannel owner = ChannelManager.byId(entry.channel);
-            String channelName = owner == null ? "" : owner.displayName;
+            Component channelName = owner == null ? Component.literal("-") : Component.literal(owner.displayName);
+            int confidence = (int) Math.round(entry.confidence * 100);
             // 窄屏（320×240）放不下通道名，先省掉它，坐标和维度优先
-            String text = narrow
-                    ? String.format("%s   X:%.0f Z:%.0f   %s   置信%d%%",
-                            name, entry.x, entry.z, dimName(entry.dimension),
-                            Math.round(entry.confidence * 100))
-                    : String.format("%s   X:%.0f Z:%.0f   %s   %s   置信%d%%",
-                            name, entry.x, entry.z, dimName(entry.dimension), channelName,
-                            Math.round(entry.confidence * 100));
-            graphics.drawString(this.font, Component.literal(text), left, y + 4,
+            Component line = narrow
+                    ? Component.translatable("eyelocator.screen.archive.entry.narrow",
+                            name, Fmt.number(entry.x), Fmt.number(entry.z), dimName(entry.dimension), confidence)
+                    : Component.translatable("eyelocator.screen.entry",
+                            name, Fmt.number(entry.x), Fmt.number(entry.z), dimName(entry.dimension),
+                            channelName, confidence);
+            graphics.drawString(this.font, line, left, y + 4,
                     entry.dimension.equals(dimension) ? COLOR_TEXT : COLOR_DIM);
             this.rowBoxes.add(new int[]{left, y - 2, right - left - 22, 16, i});
 
@@ -370,7 +398,7 @@ public final class ForgeEyeLocatorScreen extends Screen {
         }
 
         graphics.drawString(this.font,
-                Component.literal("第 " + (this.page + 1) + " / " + pages + " 页 · 共 " + all.size() + " 个"),
+                Component.translatable("eyelocator.screen.archive.page", this.page + 1, pages, all.size()),
                 left, this.height - 62, COLOR_DIM);
     }
 
@@ -413,14 +441,14 @@ public final class ForgeEyeLocatorScreen extends Screen {
         }
     }
 
-    private static String styleName(String style) {
+    private static Component styleName(String style) {
         if ("circle".equalsIgnoreCase(style)) {
-            return "圆环";
+            return Component.translatable("eyelocator.screen.style.circle");
         }
         if ("cross".equalsIgnoreCase(style)) {
-            return "十字";
+            return Component.translatable("eyelocator.screen.style.cross");
         }
-        return "菱形";
+        return Component.translatable("eyelocator.screen.style.diamond");
     }
 
     private static String next(String[] values, String current) {
@@ -441,19 +469,15 @@ public final class ForgeEyeLocatorScreen extends Screen {
         return values[0];
     }
 
-    private static String dimName(String dimension) {
+    private static Component dimName(String dimension) {
         if (dimension == null) {
-            return "?";
+            return Component.literal("?");
         }
-        switch (dimension) {
-            case "minecraft:overworld":
-                return "主世界";
-            case "minecraft:the_nether":
-                return "下界";
-            case "minecraft:the_end":
-                return "末地";
-            default:
-                return dimension;
-        }
+        return switch (dimension) {
+            case "minecraft:overworld" -> Component.translatable("eyelocator.screen.dim.overworld");
+            case "minecraft:the_nether" -> Component.translatable("eyelocator.screen.dim.nether");
+            case "minecraft:the_end" -> Component.translatable("eyelocator.screen.dim.end");
+            default -> Component.literal(dimension);
+        };
     }
 }

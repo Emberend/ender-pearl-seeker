@@ -13,12 +13,20 @@ import java.util.List;
  */
 public final class StrongholdLocator {
 
-    /** 一条由一次末影之眼投掷得到的方位射线（水平面）。 */
+    /**
+     * 一条由一次末影之眼投掷得到的方位射线（水平面）。
+     *
+     * <p>字段不是 final：持久化时 Gson 需要能直接写入。语义上依然当作不可变对象使用。</p>
+     */
     public static final class Ray {
-        public final double x;
-        public final double z;
-        public final double dx;
-        public final double dz;
+        public double x;
+        public double z;
+        public double dx;
+        public double dz;
+
+        /** Gson 反序列化用。 */
+        public Ray() {
+        }
 
         public Ray(double x, double z, double dx, double dz) {
             this.x = x;
@@ -110,6 +118,25 @@ public final class StrongholdLocator {
 
     public Ray lastRay() {
         return rays.isEmpty() ? null : rays.get(rays.size() - 1);
+    }
+
+    /** 当前所有方位射线的快照（用于持久化，外部修改不会影响内部状态）。 */
+    public List<Ray> rays() {
+        return new ArrayList<>(rays);
+    }
+
+    /** 直接回填一批射线（从磁盘恢复时使用），只重算一次。 */
+    public void restoreRays(List<Ray> saved) {
+        rays.clear();
+        if (saved != null) {
+            for (Ray ray : saved) {
+                if (ray != null && Double.isFinite(ray.x) && Double.isFinite(ray.z)
+                        && Double.isFinite(ray.dx) && Double.isFinite(ray.dz)) {
+                    rays.add(ray);
+                }
+            }
+        }
+        recompute();
     }
 
     public boolean hasEstimate() {

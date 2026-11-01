@@ -1,6 +1,7 @@
 package com.eyelocator.client;
 
 import com.eyelocator.core.ChannelManager;
+import com.eyelocator.core.Fmt;
 import com.eyelocator.core.LocatorChannel;
 import com.eyelocator.core.StrongholdLocator;
 import java.util.ArrayList;
@@ -34,18 +35,18 @@ public final class EyeLocatorScreen extends Screen {
     private final List<int[]> rowBoxes = new ArrayList<>();
 
     public EyeLocatorScreen(Screen parent) {
-        super(Text.literal("末影寻珠 管理"));
+        super(Text.translatable("eyelocator.screen.title"));
         this.parent = parent;
     }
 
     @Override
     protected void init() {
-        addDrawableChild(ButtonWidget.builder(Text.literal("设置"), b -> switchTab(0))
+        addDrawableChild(ButtonWidget.builder(Text.translatable("eyelocator.screen.tab.settings"), b -> switchTab(0))
                 .dimensions(this.width / 2 - 105, 30, 100, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("归档"), b -> switchTab(1))
+        addDrawableChild(ButtonWidget.builder(Text.translatable("eyelocator.screen.tab.archive"), b -> switchTab(1))
                 .dimensions(this.width / 2 + 5, 30, 100, 20).build());
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("完成"), b -> close())
+        addDrawableChild(ButtonWidget.builder(Text.translatable("eyelocator.screen.done"), b -> close())
                 .dimensions(this.width / 2 - 50, this.height - 28, 100, 20).build());
 
         if (tab == 0) {
@@ -68,42 +69,52 @@ public final class EyeLocatorScreen extends Screen {
 
     private void initSettings() {
         EyeLocatorConfig cfg = EyeLocatorConfig.get();
-        int w = 220;
-        int x = (this.width - w) / 2;
-        int top = 62;
+        int colW = 146;
+        int gapX = 8;
+        int left = (this.width - (colW * 2 + gapX)) / 2;
+        int right = left + colW + gapX;
+        int top = 60;
+        int rowGap = 26;
         int h = 20;
-        int gap = 24;
 
-        ButtonWidget style = cycle("路标样式", () -> styleName(cfg.markerStyle),
-                () -> cfg.markerStyle = nextStyle(cfg.markerStyle), x, top, w, h);
-        style.setTooltip(Tooltip.of(Text.literal("路标的形状：菱形 / 圆环 / 十字")));
+        ButtonWidget style = cycle("eyelocator.screen.style", () -> styleName(cfg.markerStyle),
+                () -> cfg.markerStyle = nextStyle(cfg.markerStyle), left, top, colW, h);
+        style.setTooltip(Tooltip.of(Text.translatable("eyelocator.screen.style.tooltip")));
         addDrawableChild(style);
 
-        ButtonWidget scale = cycle("路标大小", () -> String.format("%.1f", cfg.markerScale),
-                () -> cfg.markerScale = nextDouble(SCALES, cfg.markerScale), x, top + gap, w, h);
-        scale.setTooltip(Tooltip.of(Text.literal("路标显示大小，0.6 到 2.0")));
+        ButtonWidget scale = cycle("eyelocator.screen.scale", () -> Text.literal(String.format("%.1f", cfg.markerScale)),
+                () -> cfg.markerScale = nextDouble(SCALES, cfg.markerScale), right, top, colW, h);
+        scale.setTooltip(Tooltip.of(Text.translatable("eyelocator.screen.scale.tooltip")));
         addDrawableChild(scale);
 
-        addDrawableChild(toggle("显示距离", () -> cfg.showDistance, v -> cfg.showDistance = v,
-                x, top + gap * 2, w, h, "在路标下方显示到目标的距离（米）"));
+        addDrawableChild(toggle("eyelocator.screen.show_distance", "eyelocator.screen.show_distance.tooltip",
+                () -> cfg.showDistance, v -> cfg.showDistance = v, left, top + rowGap, colW, h));
 
-        addDrawableChild(toggle("显示旧要塞标记", () -> cfg.showArchived, v -> cfg.showArchived = v,
-                x, top + gap * 3, w, h, "把以前找到的其它要塞显示为暗色小标记"));
+        addDrawableChild(toggle("eyelocator.screen.show_panel", "eyelocator.screen.show_panel.tooltip",
+                () -> cfg.showPanel, v -> cfg.showPanel = v, right, top + rowGap, colW, h));
 
-        addDrawableChild(toggle("找新要塞时隐藏旧标记", () -> cfg.hideArchivedWhileSearching,
-                v -> cfg.hideArchivedWhileSearching = v, x, top + gap * 4, w, h,
-                "还没算出当前要塞时，自动隐藏旧要塞标记，避免干扰"));
+        addDrawableChild(toggle("eyelocator.screen.show_archived", "eyelocator.screen.show_archived.tooltip",
+                () -> cfg.showArchived, v -> cfg.showArchived = v, left, top + rowGap * 2, colW, h));
 
-        ButtonWidget reset = ButtonWidget.builder(Text.literal("恢复默认设置"), b -> {
+        addDrawableChild(toggle("eyelocator.screen.hide_archived", "eyelocator.screen.hide_archived.tooltip",
+                () -> cfg.hideArchivedWhileSearching, v -> cfg.hideArchivedWhileSearching = v,
+                right, top + rowGap * 2, colW, h));
+
+        addDrawableChild(toggle("eyelocator.screen.notify_chat", "eyelocator.screen.notify_chat.tooltip",
+                () -> cfg.notifyChat, v -> cfg.notifyChat = v, left, top + rowGap * 3, colW, h));
+
+        ButtonWidget reset = ButtonWidget.builder(Text.translatable("eyelocator.screen.reset"), b -> {
             cfg.markerStyle = "diamond";
             cfg.markerScale = 1.0;
             cfg.showDistance = true;
+            cfg.showPanel = true;
             cfg.showArchived = true;
             cfg.hideArchivedWhileSearching = true;
+            cfg.notifyChat = true;
             EyeLocatorConfig.save();
             this.clearAndInit();
-        }).dimensions(x, top + gap * 5, w, h).build();
-        reset.setTooltip(Tooltip.of(Text.literal("只把上面这些选项恢复默认")));
+        }).dimensions(right, top + rowGap * 3, colW, h).build();
+        reset.setTooltip(Tooltip.of(Text.translatable("eyelocator.screen.reset.tooltip")));
         addDrawableChild(reset);
     }
 
@@ -121,7 +132,7 @@ public final class EyeLocatorScreen extends Screen {
         int total = navW * 2 + addW + dedupeW + clearW + gap * 4;
         int x = Math.max(8, (this.width - total) / 2);
 
-        ButtonWidget prev = ButtonWidget.builder(Text.literal("上一页"), b -> {
+        ButtonWidget prev = ButtonWidget.builder(Text.translatable("eyelocator.screen.archive.prev"), b -> {
             if (page > 0) {
                 page--;
             }
@@ -130,28 +141,28 @@ public final class EyeLocatorScreen extends Screen {
         addDrawableChild(prev);
         x += navW + gap;
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("下一页"), b -> page++)
+        addDrawableChild(ButtonWidget.builder(Text.translatable("eyelocator.screen.archive.next"), b -> page++)
                 .dimensions(x, y, navW, h).build());
         x += navW + gap;
 
-        ButtonWidget addCurrent = ButtonWidget.builder(Text.literal("归档当前坐标"), b -> archiveCurrent())
+        ButtonWidget addCurrent = ButtonWidget.builder(Text.translatable("eyelocator.screen.archive.add"), b -> archiveCurrent())
                 .dimensions(x, y, addW, h).build();
         addCurrent.active = EyeLocatorClient.locator().hasEstimate();
-        addCurrent.setTooltip(Tooltip.of(Text.literal("把当前算出的要塞坐标保存到归档，并可命名")));
+        addCurrent.setTooltip(Tooltip.of(Text.translatable("eyelocator.screen.archive.add.tooltip")));
         addDrawableChild(addCurrent);
         x += addW + gap;
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("去重"), b -> {
+        addDrawableChild(ButtonWidget.builder(Text.translatable("eyelocator.screen.archive.dedupe"), b -> {
             int merged = StrongholdRegistry.dedupe(EyeLocatorConfig.get().dedupeDistance,
                     EyeLocatorClient.activeChannelId());
             page = 0;
             if (this.client != null && this.client.player != null) {
-                this.client.player.sendMessage(Text.literal("已合并 " + merged + " 个相近要塞"), true);
+                this.client.player.sendMessage(Text.translatable("eyelocator.chat.deduped", merged), true);
             }
         }).dimensions(x, y, dedupeW, h).build());
         x += dedupeW + gap;
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("清空归档"), b -> {
+        addDrawableChild(ButtonWidget.builder(Text.translatable("eyelocator.screen.archive.clear"), b -> {
             StrongholdRegistry.clear();
             page = 0;
         }).dimensions(x, y, clearW, h).build());
@@ -166,7 +177,8 @@ public final class EyeLocatorScreen extends Screen {
         String channelId = EyeLocatorClient.activeChannelId();
         double x = locator.estX();
         double z = locator.estZ();
-        this.client.setScreen(new TextPromptScreen(this, "归档当前坐标", "",
+        this.client.setScreen(new TextPromptScreen(this,
+                Text.translatable("eyelocator.prompt.archive_title"), "",
                 name -> StrongholdRegistry.add(channelId, name, x, z, dimension)));
     }
 
@@ -175,34 +187,40 @@ public final class EyeLocatorScreen extends Screen {
             return;
         }
         String initial = entry.name == null ? "" : entry.name;
-        this.client.setScreen(new TextPromptScreen(this, "重命名要塞", initial,
+        this.client.setScreen(new TextPromptScreen(this,
+                Text.translatable("eyelocator.prompt.rename_title"), initial,
                 name -> StrongholdRegistry.rename(entry, name)));
     }
 
     // ---- 通用控件 ----
 
-    private ButtonWidget cycle(String name, Supplier<String> value, Runnable action,
+    private ButtonWidget cycle(String labelKey, Supplier<Text> value, Runnable action,
                                int x, int y, int w, int h) {
-        return ButtonWidget.builder(Text.literal(name + ": " + value.get()), b -> {
+        return ButtonWidget.builder(optionText(labelKey, value.get()), b -> {
             action.run();
             EyeLocatorConfig.save();
-            b.setMessage(Text.literal(name + ": " + value.get()));
+            b.setMessage(optionText(labelKey, value.get()));
         }).dimensions(x, y, w, h).build();
     }
 
-    private ButtonWidget toggle(String name, BooleanSupplier getter, Consumer<Boolean> setter,
-                                int x, int y, int w, int h, String tooltip) {
-        ButtonWidget button = ButtonWidget.builder(stateText(name, getter.getAsBoolean()), b -> {
+    private ButtonWidget toggle(String labelKey, String tooltipKey, BooleanSupplier getter,
+                                Consumer<Boolean> setter, int x, int y, int w, int h) {
+        ButtonWidget button = ButtonWidget.builder(stateText(labelKey, getter.getAsBoolean()), b -> {
             setter.accept(!getter.getAsBoolean());
             EyeLocatorConfig.save();
-            b.setMessage(stateText(name, getter.getAsBoolean()));
+            b.setMessage(stateText(labelKey, getter.getAsBoolean()));
         }).dimensions(x, y, w, h).build();
-        button.setTooltip(Tooltip.of(Text.literal(tooltip)));
+        button.setTooltip(Tooltip.of(Text.translatable(tooltipKey)));
         return button;
     }
 
-    private static Text stateText(String name, boolean on) {
-        return Text.literal(name + ": " + (on ? "开" : "关"));
+    private static Text optionText(String labelKey, Text value) {
+        return Text.translatable("eyelocator.screen.option", Text.translatable(labelKey), value);
+    }
+
+    private static Text stateText(String labelKey, boolean on) {
+        return Text.translatable("eyelocator.screen.option", Text.translatable(labelKey),
+                Text.translatable(on ? "eyelocator.screen.on" : "eyelocator.screen.off"));
     }
 
     @Override
@@ -212,7 +230,7 @@ public final class EyeLocatorScreen extends Screen {
 
         if (tab == 0) {
             context.drawCenteredTextWithShadow(this.textRenderer,
-                    Text.literal("更多高级选项请编辑 config/eyelocator.json"),
+                    Text.translatable("eyelocator.screen.advanced"),
                     this.width / 2, this.height - 44, 0xFF777777);
         } else {
             renderArchive(context, mouseX, mouseY);
@@ -228,15 +246,16 @@ public final class EyeLocatorScreen extends Screen {
         int rowY = 70;
 
         context.drawTextWithShadow(this.textRenderer,
-                Text.literal("已归档要塞（当前维度： " + dimName(dimension) + "）"), left, 44, 0xFFAAAAAA);
+                Text.translatable("eyelocator.screen.archive.header", dimName(dimension)), left, 44, 0xFFAAAAAA);
         context.drawTextWithShadow(this.textRenderer,
-                Text.literal("点击条目可重命名"), right - 90, 44, 0xFF777777);
+                Text.translatable("eyelocator.screen.archive.rename_hint"), right - 90, 44, 0xFF777777);
 
         List<StrongholdRegistry.Entry> all = StrongholdRegistry.entries();
         deleteBoxes.clear();
         rowBoxes.clear();
         if (all.isEmpty()) {
-            context.drawTextWithShadow(this.textRenderer, Text.literal("暂无归档"), left, rowY, 0xFF888888);
+            context.drawTextWithShadow(this.textRenderer,
+                    Text.translatable("eyelocator.screen.archive.empty"), left, rowY, 0xFF888888);
             return;
         }
 
@@ -249,13 +268,15 @@ public final class EyeLocatorScreen extends Screen {
             StrongholdRegistry.Entry entry = all.get(i);
             int y = rowY + (i - start) * ROW_HEIGHT;
 
-            String name = entry.name == null || entry.name.isEmpty() ? "未命名" : entry.name;
+            Text name = entry.name == null || entry.name.isEmpty()
+                    ? Text.translatable("eyelocator.screen.unnamed")
+                    : Text.literal(entry.name);
             LocatorChannel owner = ChannelManager.byId(entry.channel);
-            String channelName = owner == null ? "" : owner.displayName;
-            String text = String.format("%s   X:%.0f Z:%.0f   %s   %s   置信%d%%",
-                    name, entry.x, entry.z, dimName(entry.dimension), channelName,
+            Text channelName = owner == null ? Text.literal("-") : Text.literal(owner.displayName);
+            Text line = Text.translatable("eyelocator.screen.entry", name,
+                    Fmt.number(entry.x), Fmt.number(entry.z), dimName(entry.dimension), channelName,
                     Math.round(entry.confidence * 100));
-            context.drawTextWithShadow(this.textRenderer, Text.literal(text), left, y + 4,
+            context.drawTextWithShadow(this.textRenderer, line, left, y + 4,
                     entry.dimension.equals(dimension) ? 0xFFE0E0E0 : 0xFF909090);
             rowBoxes.add(new int[]{left, y - 2, right - left - 22, 16, i});
 
@@ -268,7 +289,7 @@ public final class EyeLocatorScreen extends Screen {
         }
 
         context.drawTextWithShadow(this.textRenderer,
-                Text.literal("第 " + (page + 1) + " / " + pages + " 页 · 共 " + all.size() + " 个"),
+                Text.translatable("eyelocator.screen.archive.page", page + 1, pages, all.size()),
                 left, this.height - 68, 0xFFAAAAAA);
     }
 
@@ -311,11 +332,11 @@ public final class EyeLocatorScreen extends Screen {
         }
     }
 
-    private static String styleName(String style) {
+    private static Text styleName(String style) {
         return switch (style) {
-            case "circle" -> "圆环";
-            case "cross" -> "十字";
-            default -> "菱形";
+            case "circle" -> Text.translatable("eyelocator.screen.style.circle");
+            case "cross" -> Text.translatable("eyelocator.screen.style.cross");
+            default -> Text.translatable("eyelocator.screen.style.diamond");
         };
     }
 
@@ -337,15 +358,15 @@ public final class EyeLocatorScreen extends Screen {
         return values[0];
     }
 
-    private static String dimName(String dimension) {
+    private static Text dimName(String dimension) {
         if (dimension == null) {
-            return "?";
+            return Text.literal("?");
         }
         return switch (dimension) {
-            case "minecraft:overworld" -> "主世界";
-            case "minecraft:the_nether" -> "下界";
-            case "minecraft:the_end" -> "末地";
-            default -> dimension;
+            case "minecraft:overworld" -> Text.translatable("eyelocator.screen.dim.overworld");
+            case "minecraft:the_nether" -> Text.translatable("eyelocator.screen.dim.nether");
+            case "minecraft:the_end" -> Text.translatable("eyelocator.screen.dim.end");
+            default -> Text.literal(dimension);
         };
     }
 }

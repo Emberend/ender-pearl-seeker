@@ -12,6 +12,13 @@ base {
 
 repositories {
 	// Loom adds the essential maven repositories automatically.
+	// 单元测试用的 JUnit 依赖
+	mavenCentral()
+	// ModMenu 只用于提供一个可选的设置入口，缺失时 Mod 仍正常工作
+	maven {
+		name = "TerraformersMC"
+		url = "https://maven.terraformersmc.com/releases/"
+	}
 }
 
 // 与加载器无关的纯算法代码，Fabric 与 Forge 两个模块共用同一份源码
@@ -23,11 +30,29 @@ sourceSets {
 	}
 }
 
+// ModMenu 版本随 Minecraft 版本变化，由 build-all.sh / CI 逐版本传入
+def modmenuVersion = (findProperty("modmenu_version") ?: "").toString()
+
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	if (!modmenuVersion.isEmpty()) {
+		modCompileOnly "com.terraformersmc:modmenu:${modmenuVersion}"
+	}
+
+	// 共享算法层的单元测试（不依赖 Minecraft 运行时）
+	testImplementation platform("org.junit:junit-bom:5.10.2")
+	testImplementation "org.junit.jupiter:junit-jupiter"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+tasks.named("test") {
+	useJUnitPlatform()
+	testLogging {
+		events "passed", "skipped", "failed"
+	}
 }
 
 def javaRelease = (findProperty("java_release") ?: "21").toString()
